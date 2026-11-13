@@ -89,7 +89,7 @@ function lastDayOfWindow(purchasedAtIso: string): string {
  * The confirmation the learner gets in their inbox. There is no mail
  * transport wired up yet, so the built message goes to the server log.
  */
-function buildReversalEmail(input: {
+function buildCancellationEmail(input: {
   learnerName: string;
   learnerEmail: string;
   courseTitle: string;
@@ -97,14 +97,14 @@ function buildReversalEmail(input: {
 }) {
   return {
     to: input.learnerEmail,
-    subject: `Reversal requested — ${input.courseTitle}`,
+    subject: `Cancellation received — ${input.courseTitle}`,
     body: [
       `Hi ${input.learnerName},`,
       "",
-      `We have your Reversal request for "${input.courseTitle}".`,
-      `The Reversal is for ${formatPrice(input.amount)}, the amount you paid.`,
+      `We've received your cancellation for "${input.courseTitle}".`,
+      `Your refund is for ${formatPrice(input.amount)}, the amount you paid.`,
       "",
-      "Our team reviews every Reversal by hand. You do not need to do anything else — we will email you again when it is done.",
+      "Our team reviews each cancellation by hand. You don't need to do anything else — we'll email you again when it's done.",
       "",
       "— The Cadence team",
     ].join("\n"),
@@ -222,7 +222,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     .returning()
     .get();
 
-  const email = buildReversalEmail({
+  const email = buildCancellationEmail({
     learnerName: learner.name,
     learnerEmail: learner.email,
     courseTitle: course.title,

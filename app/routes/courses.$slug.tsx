@@ -1024,8 +1024,8 @@ function CancelPurchase({ slug, amount }: { slug: string; amount: number }) {
     <div className="border-t pt-4">
       <p className="mb-2 text-sm font-medium">Cancel my purchase</p>
       <p className="mb-3 text-xs text-muted-foreground">
-        We will send {formatPrice(amount)} back to the card you paid with, once
-        someone has read your note.
+        We'll send {formatPrice(amount)} back to the card you paid with, once
+        our team has read your note.
       </p>
       <fetcher.Form
         method="post"
@@ -1048,7 +1048,7 @@ function CancelPurchase({ slug, amount }: { slug: string; amount: number }) {
             size="sm"
             onClick={() => setIsFormOpen(false)}
           >
-            Keep it
+            Keep the course
           </Button>
         </div>
       </fetcher.Form>
