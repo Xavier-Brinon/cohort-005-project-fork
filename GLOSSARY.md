@@ -34,3 +34,7 @@ _Avoid_: Completed, Paid out
 
 **Failed Refund**:
 A Refund where the money couldn't be sent. The Refund Request stays approved, because the decision hasn't changed.
+
+**Revoked Enrollment**:
+An enrollment whose Refund has been Issued. Access to the course is gone, but the learner's progress records are kept, so a re-purchase resumes where they left off. Access is revoked at the point the money is Issued, not at the point the Refund Request is approved.
+_Avoid_: Removed enrollment, Deleted enrollment, Cancellation
