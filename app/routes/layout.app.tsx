@@ -3,6 +3,14 @@ import type { Route } from "./+types/layout.app";
 import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
 import { Toaster } from "sonner";
+// PROTOTYPE (prototype/notification-inbox): never merge.
+import { getKnockClientProps } from "~/lib/knock.prototype.server";
+import {
+  NotificationsBoundary,
+  VARIANTS,
+  useVariant,
+} from "~/components/notifications.prototype";
+import { PrototypeSwitcher } from "~/components/prototype-switcher";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
 import { eq, and, or, sql, desc } from "drizzle-orm";
@@ -213,6 +221,10 @@ export async function loader({ request }: Route.LoaderArgs) {
     countryTierInfo,
     countries: COUNTRIES,
     isTeamAdmin: currentUserId ? isTeamAdmin(currentUserId) : false,
+    // PROTOTYPE: user token signed here, on the server, per request.
+    knock: currentUser
+      ? await getKnockClientProps({ id: currentUser.id, name: currentUser.name })
+      : null,
   };
 }
 
@@ -225,14 +237,23 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     countryTierInfo,
     countries,
     isTeamAdmin: userIsTeamAdmin,
+    knock,
   } = loaderData;
+  const variant = useVariant();
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        currentUser={currentUser}
-        recentCourses={recentCourses}
-        isTeamAdmin={userIsTeamAdmin}
+      <NotificationsBoundary knock={knock}>
+        <Sidebar
+          currentUser={currentUser}
+          recentCourses={recentCourses}
+          isTeamAdmin={userIsTeamAdmin}
+        />
+      </NotificationsBoundary>
+      <PrototypeSwitcher
+        variants={VARIANTS}
+        current={variant}
+        tokenSignedAt={knock?.signedAt ?? null}
       />
       <main className="flex-1 overflow-y-auto">
         <Outlet />
