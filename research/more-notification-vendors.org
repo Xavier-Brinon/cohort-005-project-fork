@@ -1,0 +1,156 @@
+#+title: Do Engagespot or NotificationAPI beat the vendor shortlist?
+#+date: 2026-11-14
+#+options: toc:nil ^:{}
+#+startup: indent
+
+Research for issue #9 (part of map #2). Same criteria and shape as
+=research/notification-vendors.org= (issue #3). Sources are vendor docs,
+pricing pages, npm and GitHub, read on 2026-11-14. Where a vendor page is gone,
+I read the vendor's own page as archived by the Wayback Machine and say so.
+
+* Question
+Do *Engagespot* or *NotificationAPI* (renamed *Pingram* in January 2026)
+belong on the shortlist next to Knock, Novu and SuprSend?
+
+* Verdict in one paragraph
+No. On paper both pass the hard criteria, and both offer US + EU residency on
+Free, which Knock lacks. But both fail a check the first round did not need:
+is the in-app product still alive? Engagespot's marketing site returns 404
+(pricing, homepage, blog), its React SDKs were last published in May 2025 and
+its GitHub org last pushed in January 2025; only the docs and console still
+answer. Pingram has pivoted to email, SMS and voice: its in-app docs pages now
+return 404, the changelog deprecates creating environments (26 Aug 2026), and
+mobile push was dropped (7 Aug 2026). For an app treated as live in production,
+neither is a safe bet. Shortlist unchanged: *Knock*, *Novu*, *SuprSend*.
+
+* Comparison table
+| Criterion                  | Engagespot                              | Pingram (ex NotificationAPI)                   |
+|----------------------------+-----------------------------------------+------------------------------------------------|
+| Real-time inbox            | Yes, socket ("live updates")            | Yes, WebSocket (=ws.eu.notificationapi.com=)   |
+| Server-signed token        | JWT RS256, signed locally               | HMAC-SHA256 =hashedUserId=, base64             |
+| Free tier, no card         | 10k triggers/mo, no card (archived)     | 3,000 emails/in-app per mo, no card            |
+| Prebuilt inbox, restylable | Yes, =theme= prop and render props      | Yes, =theme= (mode, colors, or MUI theme)      |
+| Headless hooks             | Yes, =@engagespot/react-hooks=          | Yes, =useNotificationAPIContext=, JS core      |
+| SSR (client-only)          | Documented for Next.js (=ssr: false=)   | Documented for React Router 7 (archived)       |
+| Environments on free       | Dev + Prod by default                   | Creating environments deprecated; use accounts |
+| Node SDK / REST trigger    | =@engagespot/node= (last publish 2024)  | =pingram= (Nov 2026), REST                     |
+| Recipient id               | String =identifier=                     | String =id=                                    |
+| Read/unread/archive        | seen, read, clicked, delete; no archive | opened, clicked, archived, unread              |
+| Per-user preferences       | Yes, category x channel                 | Yes, popup and inline widgets                  |
+| Email later                | Yes, bring a provider (SES, Resend...)  | Yes, built-in sending                          |
+| Open source / self-host    | SDKs MIT; on-prem on Enterprise         | SDKs only; no self-host found                  |
+| Next tier                  | Growth $250/mo, 250k (archived)         | $20/mo budget (or "Pro from $9", conflict)     |
+| EU data residency          | Yes, US/EU on Free                      | Yes, US/EU/CA on Free                          |
+| Product health (new row)   | Site 404, SDKs stale since May 2025     | In-app docs removed, pivot to email/SMS/voice  |
+
+* Per-vendor notes
+** Engagespot
+- *Auth.* "By default, the In-App Inbox APIs and libraries don't have any
+  authentication." Secure Auth Mode is turned on in the console; you download a
+  private key and sign a JWT, "The algorithm should be =RS256=", claims =sub=
+  (=user:<identifier>=), =apiKey=, =iat=, =exp=. =@engagespot/node= offers
+  =generateUserToken(identifier)=. No refresh flow documented. [[https://docs.engagespot.co/docs/features/in-app-inbox/authentication][docs.engagespot.co/docs/features/in-app-inbox/authentication]]
+- *React.* =@engagespot/react-component= (=<Engagespot>=, props =apiKey=,
+  =userId=, =userToken=, =dataRegion=); peer React 16.8.3 or later. Restyle through
+  =theme= (=ThemeOverrides=) and render props such as
+  =renderNotificationContent=. [[https://docs.engagespot.co/docs/sdks-n-libraries/frontend/react/quick-start][react/quick-start]], [[https://docs.engagespot.co/docs/sdks-n-libraries/frontend/react/styling][react/styling]]
+- *Headless and real-time.* =@engagespot/react-hooks= (=useFeed=) "provides
+  live updates for new notifications" by monitoring the socket. [[https://docs.engagespot.co/docs/sdks-n-libraries/frontend/react-hooks/get-started][react-hooks/get-started]]
+- *SSR.* "We need to render EngageSpot on the client": ="use client"= for App
+  Router, =next/dynamic= with ={ ssr: false }= for Pages Router. Nothing on
+  React Router. [[https://docs.engagespot.co/docs/sdks-n-libraries/frontend/nextjs/quick-start][nextjs/quick-start]]
+- *Statuses.* Events =notificationSeen=, =notificationRead=,
+  =notificationReadAll=, =notificationDelete=; =clickedAt= and =seenAt= on
+  items. No archive state found. [[https://docs.engagespot.co/docs/sdks-n-libraries/frontend/react/features][react/features]]
+- *Preferences.* Per category, each channel enabled or disabled. [[https://docs.engagespot.co/docs/features/preference/what-are-preferences][preference/what-are-preferences]]
+- *Recipient id.* Any unique, stable value; docs cite "auto-increment ID" as a
+  valid example; SDK examples are strings. [[https://docs.engagespot.co/docs/features/user/who-is-user][user/who-is-user]]
+- *Environments.* "By default, Engagespot creates a development and production
+  environment"; custom ones via "Create Environment"; promotion by migration.
+  Pricing lists "Unlimited environments" under Growth, so Free is likely capped
+  at the two defaults. [[https://docs.engagespot.co/docs/concepts/environment][concepts/environment]]
+- *Residency.* US (=api.engagespot.co=) or EU (=api-eu.engagespot.co=), chosen
+  at signup or per workspace; pricing shows "US/EU Region" on Free. [[https://docs.engagespot.co/docs/concepts/data-region][concepts/data-region]]
+- *Pricing.* Launch, free forever: 10k event triggers/mo, unlimited workflows,
+  "No credit card required". Growth $250/mo: 250k, $1.5 per extra 1k, remove
+  branding, unlimited environments. Enterprise from $2,500: on-prem. Read from
+  the Wayback copy of [[https://engagespot.co/pricing][engagespot.co/pricing]] dated 2026-08-28; the live page
+  returns 404.
+- *Health.* =engagespot.co=, =/pricing= and =/blog= return 404 (Framer
+  server). =docs.engagespot.co= and =console.engagespot.co= return 200.
+  =@engagespot/react-component= 3.0.1 last published 2025-05-09;
+  =@engagespot/node= 1.7.0 on 2024-11-06; newest push in =github.com/Engagespot=
+  is 2025-01-25 ([[https://registry.npmjs.org/@engagespot/react-component][npm registry]]).
+
+** Pingram (formerly NotificationAPI)
+- *Rename.* "We are rebranding from NotificationAPI to Pingram. Same team, same
+  product"; old APIs and SDKs keep working. [[https://www.pingram.io/blog/notificationapi-is-now-pingram][pingram.io/blog/notificationapi-is-now-pingram]]
+- *Auth.* Secure Mode: backend computes
+  =createHmac('sha256', CLIENT_SECRET).update(userId).digest('base64')= and
+  passes it as =hashedUserId=; servers recompute and reject a mismatch. Enabled
+  in Dashboard > Settings > Security. Read from the Wayback copy (2026-06-07)
+  of [[https://www.pingram.io/docs/security/secure-mode][pingram.io/docs/security/secure-mode]]; live page now 404.
+- *React.* =@notificationapi/react= 2.0.1 (2026-10-23), React 17 to 19.
+  =NotificationAPIProvider=, =NotificationPopup=, =NotificationLauncher=,
+  =NotificationFeed=, =NotificationCounter=, =NotificationPreferencesPopup=,
+  =NotificationPreferencesInline=. =theme= accepts a mode, custom colors or a
+  full MUI theme (the SDK is built on MUI). Headless via
+  =useNotificationAPIContext= or =@notificationapi/core=. Wayback copy
+  (2026-06-07) of [[https://www.pingram.io/docs/reference/react-sdk][pingram.io/docs/reference/react-sdk]]; live page now 404.
+- *Real-time.* "delivered in real-time through WebSocket connections", with
+  per-region socket hosts including =ws.eu.notificationapi.com=.
+- *SSR.* The only vendor in either round with a React Router 7 section:
+  "Create a provider component to avoid SSR/hydration issues in Remix (React
+  Router v7)", using an =isClient= state set after mount. Wayback copy
+  (2026-06-07) of [[https://www.pingram.io/docs/channels/inapp][pingram.io/docs/channels/inapp]]; live page now 404.
+- *Statuses.* =markAsOpened=, =markAsClicked=, =markAsArchived=; counter can
+  count "unopened/unseen" or "unarchived". (Same archived React SDK page.)
+- *Environments.* "Creating additional environments is no longer supported" (26
+  Aug 2026); for staging "create another account". [[https://www.pingram.io/docs/features/environments][pingram.io/docs/features/environments]], [[https://www.pingram.io/changelog][changelog]]
+- *Node trigger.* =pingram= (MIT, 1.0.43, 2026-11-13):
+  =pingram.send({ type, to: { id }, inapp: { title, url } })=. Recipient =id=
+  is a string. Legacy =notificationapi-node-server-sdk= last published
+  2025-12-22.
+- *Pricing.* Free: "No credit card required", 3,000 emails, 100 SMS, 100 voice
+  minutes per month; llms.txt says "3,000 emails/in-app". Paid tiers are a
+  monthly budget from $20 shared across channels; llms.txt says "Pro: from
+  $9/month". [[https://www.pingram.io/pricing][pingram.io/pricing]], [[https://www.pingram.io/llms.txt][pingram.io/llms.txt]]
+- *Residency.* US, EU (Frankfurt), Canada; "available on every plan, including
+  free". Migration between regions only on Enterprise. [[https://www.pingram.io/docs/security/data-residency][pingram.io/docs/security/data-residency]]
+- *Direction.* Homepage leads with "One API for email, SMS, and voice calls";
+  in-app is gone from the docs nav; changelog 2026 entries are email, SMS and
+  voice, plus deprecations. In-app still sends (22 Oct 2026 fix mentions
+  "in-app messages").
+
+* Ranking against the shortlist
+With the #5 weights (EU residency tie-breaker, growth cost barely matters, Dev +
+Prod enough, open source minor tie-breaker):
+1. *Knock*.
+2. *Novu*.
+3. *SuprSend*. Top three unchanged from #3.
+4. *Engagespot.* On features alone it would tie Novu: local RS256 JWT, Dev +
+   Prod on Free, EU on Free. Dropped for product health: dead marketing site,
+   SDKs untouched for 18 months.
+5. *Pingram.* HMAC like Novu, EU on Free, documented React Router 7 setup. But
+   one environment per account now (QA mode means a second account), in-app
+   docs removed, and the vendor is moving away from in-app.
+
+The EU tie-breaker never comes into play: neither newcomer clears the bar on
+health, which comes before tie-breakers.
+
+* Not verified / open flags
+- Engagespot status: no shutdown notice found; 404 site plus stale SDKs is
+  inference, not an announcement. Worth one email to Engagespot support if it
+  matters.
+- Engagespot Free: environment count and whether "JWT Based Auth for In-App
+  Inbox" is on Free come from a pricing table whose cells are icons; not read.
+- Engagespot real-time transport: "socket" in docs; WebSocket assumed.
+- Pingram in-app details (secure mode, React SDK, RR7 guide) come from Wayback
+  copies dated 2026-06-07; current behaviour not verified.
+- Pingram next tier: $20 budget (pricing page) vs "Pro from $9/month"
+  (llms.txt). Whether in-app counts against the 3,000 Free messages is from
+  llms.txt only.
+- Pingram EU socket host uses the old =notificationapi.com= domain; current EU
+  in-app endpoint not confirmed.
+- Neither vendor documents numeric ids; send =String(user.id)= as with the
+  others.
