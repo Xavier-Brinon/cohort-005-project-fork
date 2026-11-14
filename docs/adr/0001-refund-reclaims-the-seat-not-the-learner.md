@@ -38,3 +38,7 @@ refund is a money-and-access event, not an erasure of the learner's data.
   Settings "Refund Requests" card learns the Approved / Pending / Issued states, and is
   the only learner-visible signal until Issued.
 - Instructor analytics and cohort completion numbers stay intact through a refund.
+- Known naming drift, older than this ADR: the `refunds` table holds **Refund Requests**
+  (status Open / Approved / Declined), so a `refundId` is a Refund Request's id. The
+  money-state this ADR needs belongs to the **Refund**. Renaming the table is a
+  migration, deferred out of the work that implements this ADR.
