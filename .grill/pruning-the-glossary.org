@@ -1,0 +1,266 @@
+#+title: Grill: Pruning GLOSSARY.md
+#+todo: TODO DEFER | DONE
+#+startup: indent
+#+options: ^:{}
+
+* Round 1
+** DONE Q1 Drop the implementation entries
+Nine entries under "Other terms" describe code, not the domain: ~Refunds table~,
+~refunded_at~, ~resolved_by_user_id~, ~RefundRequestCard~, ~Button~,
+~Component~, ~cwd~, ~Loader~, ~Slug~.
+
+They also leak words the glossary tells us to avoid: ~refunded_at~ talks about
+"coupons" and "team purchase" (Avoid list of Seat and Team Licence), and
+~resolved_by_user_id~ says "an Admin" on its own (Avoid list of Platform Admin).
+The schema and the code already document them.
+
+Drop all nine?
+
+*** Recommendation
+Yes, drop all nine. None is a term a domain expert would say.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+** DONE Q2 What is the glossary's scope
+The header says it covers "buying courses and getting money back after a
+purchase". The last seed added terms beyond that: ~Instructor~ (a role with no
+part in refunds), ~Lapsed~ (an instructor-roster badge), ~Watched~.
+
+Options:
+- (a) Purchases and Refunds only: drop everything outside, including the terms
+  the refund rules lean on.
+- (b) Purchases, Refunds, and a learner's place on a course: keep what refund
+  language needs (Learner, Watched, Watch Limit, place on a course, Lapsed),
+  drop ~Instructor~.
+- (c) The whole platform: keep everything, widen the header.
+
+*** Recommendation
+(b). Approving a Refund Request ends a learner's place on a course, and the
+Watch Limit decides whether a Refund Request may be raised, so those words are
+needed. ~Instructor~ plays no part in buying or refunding.
+
+*** Answer
+Agreed
+
+Header widened in [[file:../GLOSSARY.md][GLOSSARY.md]]; ~Instructor~ removed.
+
+** DONE Q3 Rewrite Watch Limit as a Refund Request rule
+Current entry: "A Refund is only offered on a course with under two hours
+watched. Past that, the Learner has had the course, and the refund form turns
+them away."
+
+Three problems:
+- It is a rule with a number in it. The number has already drifted: the code
+  (=app/lib/refund-rules.ts=, ~REFUND_WATCH_LIMIT_SECONDS = 60 * 60~) says one
+  hour, the glossary says two.
+- The limit gates raising a Refund Request, not the Refund (money). Elsewhere
+  the glossary keeps those apart.
+- "the refund form turns them away" is UI behaviour.
+
+Proposed entry:
+
+: Watch Limit: The amount of Watched time on a course past which the buyer
+: can no longer raise a Refund Request for it.
+: Avoid: Watch cap, Viewing threshold
+
+*** Recommendation
+Yes, use the proposed entry. The number lives in code only.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+** DONE Q4 One hour or two hours
+Separate from the glossary wording: the last seed commit (~093b039~) changed
+~REFUND_WATCH_LIMIT_SECONDS~ from ~2 * 60 * 60~ to ~60 * 60~ with no reason in
+the message, and the glossary still says two hours. The same commit changed the
+error text to "You have watched too much of this course to get a refund." (the
+other rule errors say "request a refund").
+
+Which is the intended limit? Fixing the code is outside the pruning, so this
+would be a separate change (or issue).
+
+*** Recommendation
+Two hours is intended; the one-hour change and the "get a refund" wording are
+drift. File it as an issue rather than fix it in this branch.
+
+*** Answer
+agreed
+
+Filed as [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/1][issue #1]].
+
+** DONE Q5 Add Learner
+"Learner" is used everywhere (capitalised in Watch Limit and Watched, lowercase
+in Team Admin, Seat, Individual Purchase) but never defined. The code says
+"student" on the instructor roster and "user" in the schema.
+
+Proposed entry under People:
+
+: Learner: Someone who watches courses on Cadence, through an Individual
+: Purchase or a Claimed Seat.
+: Avoid: Student, User, Customer
+
+*** Recommendation
+Yes, add it. It is a pruning, but the glossary leans on this word in almost
+every entry.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+** DONE Q6 Enrollment or "place on a course"
+Two words for one thing:
+- The ADRs (0001, 0002, 0004) and Approved Refund Request say "a learner's place
+  on a course".
+- ~Lapsed~ and ~Instructor~ say "Enrollment" / "enrolled"; the schema table is
+  ~enrollments~.
+
+Pick one canonical term, define it, and list the other under Avoid.
+
+*** Recommendation
+Enrollment: "A Learner's place on a course. A Learner has at most one per
+course, however they got it." Avoid: place on a course, Access. Reword Approved
+Refund Request to say Enrollment. Leave the ADRs as written; they are a
+historical record.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+* Round 2
+** DONE Q7 What does Lapsed mean
+The glossary says: "An Enrollment that is no longer active." The code disagrees.
+=app/lib/enrollments.ts= has ~isLapsed~ return true when ~enrollmentId ===
+null~: a Lapsed learner has /no/ Enrollment at all, not an inactive one. The
+roster finds them as learners with lesson progress on the course and no
+Enrollment (=app/routes/instructor.$courseId.students.tsx=).
+
+With Enrollment now defined as "a Learner's place on a course", "inactive
+Enrollment" names something that does not exist.
+
+Proposed entry:
+
+: Lapsed: A Learner who has Watched part of a course but no longer has an
+: Enrollment on it, for example after an Approved Refund Request.
+: Avoid: Expired, Inactive, Revoked
+
+The current entry also mentions "the instructor's student roster", which is UI
+and uses two words we avoid or dropped (Instructor, student).
+
+*** Recommendation
+Yes, use the proposed entry.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+** DONE Q8 Take the unit out of Watched
+Current entry: "Seconds of video a Learner has actually played in a course: the
+furthest point reached in each lesson, added up. Not lessons opened."
+
+"Seconds" is how the code stores it, not what the word means. Proposed entry:
+
+: Watched: How much of a course's video a Learner has actually played: the
+: furthest point reached in each lesson, added up. Not lessons opened.
+: Avoid: Viewed, Progress
+
+*** Recommendation
+Yes, use the proposed entry.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+** DONE Q9 Regroup what is left of Other terms
+After round 1, "Other terms" holds Enrollment, Watched, Watch Limit and Lapsed.
+None is "other" any more.
+
+Proposed grouping:
+- Rename "Other terms" to "Courses", holding Enrollment, Watched and Lapsed.
+- Move Watch Limit under "Refunds", next to Refund Request, since it is a rule
+  on raising one.
+- Order the sections People, Purchases, Courses, Refunds, so each term is
+  defined before the sections that use it.
+
+*** Recommendation
+Yes, regroup as proposed.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+** DONE Q10 Leave out the other refund rules
+The code has two more rules beside the Watch Limit, both in
+=app/lib/refund-rules.ts=: a 14-day window (~REFUND_WINDOW_DAYS~) and a 50%
+completion limit (~REFUND_COMPLETION_LIMIT~). Neither is in the glossary.
+
+If Watch Limit earns an entry, a reader may expect "Refund Window" and
+"Completion Limit" too. But this session is a pruning.
+
+*** Recommendation
+Leave them out. Add them only when a conversation needs the words; the Watch
+Limit is in because Watched hangs off it.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+* Round 3
+** DONE Q11 Is a Team Admin a Learner
+Learner is now "someone who watches courses on Cadence, through an Individual
+Purchase or a Claimed Seat". Three entries still use lowercase "learner":
+- Team Admin: "A learner who buys and manages a Team Licence."
+- Individual Purchase: "A Purchase a learner makes for themselves."
+- Seat, Unclaimed Seat, Claimed Seat: "a learner can claim", "no learner has
+  claimed".
+
+Individual Purchase and the Seat entries mean Learner, so capitalising them is
+safe. Team Admin is different: a Team Licence "grants Seats, not the course
+itself; the buyer can't watch the course through it". A Team Admin who never
+claims a Seat watches nothing, so calling them a Learner contradicts both
+entries.
+
+Proposed Team Admin entry:
+
+: Team Admin: Someone who buys and manages a Team Licence. A Team Admin is not
+: a Learner through it, and has no say over Refund Requests.
+: Avoid: Admin (on its own)
+
+*** Recommendation
+Yes: reword Team Admin as proposed, and capitalise "learner" to Learner in
+Individual Purchase and the three Seat entries.
+
+*** Answer
+agreed
+
+Applied in [[file:../GLOSSARY.md][GLOSSARY.md]].
+
+* Summary
+- Q1 :: Drop the nine implementation entries (tables, columns, components,
+  framework words).
+- Q2 :: Scope is Purchases, Refunds, and a Learner's Enrollment; ~Instructor~
+  dropped.
+- Q3 :: Watch Limit is a rule on raising a Refund Request, with no number in it.
+- Q4 :: Two hours is the intended Watch Limit; the one-hour code drift is
+  [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/1][issue #1]].
+- Q5 :: Learner added under People.
+- Q6 :: Enrollment is the canonical term; "place on a course" is avoided; ADRs
+  left as written.
+- Q7 :: Lapsed is a Learner who has Watched part of a course and has no
+  Enrollment on it.
+- Q8 :: Watched has no unit.
+- Q9 :: Sections are People, Purchases, Courses, Refunds; Watch Limit sits
+  under Refunds.
+- Q10 :: Refund window and completion limit stay out of the glossary.
+- Q11 :: A Team Admin is not a Learner through a Team Licence; "learner" is
+  capitalised where it means Learner.
