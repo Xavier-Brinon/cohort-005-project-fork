@@ -13,6 +13,7 @@ import {
   Tag,
   Users,
   UsersRound,
+  Banknote,
   Moon,
   Sun,
   LogOut,
@@ -90,6 +91,12 @@ const navItems: NavItem[] = [
     label: "Manage Courses",
     to: "/admin/courses",
     icon: <Shield className="size-4" />,
+    roles: [UserRole.Admin],
+  },
+  {
+    label: "Refund Requests",
+    to: "/admin/refunds",
+    icon: <Banknote className="size-4" />,
     roles: [UserRole.Admin],
   },
   {
