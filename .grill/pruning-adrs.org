@@ -1,0 +1,142 @@
+#+title: Grill: Pruning the ADRs
+#+todo: TODO DEFER | DONE
+#+startup: indent
+#+options: ^:{}
+
+Test for every ADR: it stays only if it is *hard to reverse*, *surprising
+without context*, and *the result of a real trade-off*.
+
+What the audit found (checked against the code on =run/pruning-adrs=):
+
+| ADR  | Topic                                 | Hard | Surprising | Trade-off | Matches code?                                                |
+|------+---------------------------------------+------+------------+-----------+--------------------------------------------------------------|
+| 0001 | Approval keeps progress               | yes  | yes        | yes       | yes                                                          |
+| 0002 | Enrollment ends at approval           | yes  | yes        | yes       | yes                                                          |
+| 0003 | Team Licence refunds all-or-nothing   | yes  | yes        | yes       | yes                                                          |
+| 0004 | Enrollment not tied to a Purchase     | yes  | yes        | yes       | yes                                                          |
+| 0005 | Money as integer cents                | yes  | weak       | yes       | yes (~integer~ columns, ~formatPrice~)                       |
+| 0006 | One SQLite file through Drizzle       | yes  | yes        | yes       | yes                                                          |
+| 0007 | lucide-react for icons                | no   | no         | weak      | yes                                                          |
+| 0008 | ip-api.com lookup for unknown country | -    | -          | -         | *no*: ~resolveCountry~ never calls ip-api; unknown pays full |
+| 0009 | Country recorded on the purchase      | yes  | yes        | yes       | yes (~purchases.country~, ~checkPppAccess~)                  |
+| 0010 | Refund emails go to the server log    | -    | -          | -         | *no*: ~sendEmail~ uses Postmark or writes =.outbox/=         |
+| 0011 | Prettier, settings left alone         | no   | no         | no        | yes                                                          |
+
+* Round 1
+** DONE Q1 Delete or deprecate as the default
+When an ADR fails the test, do we delete the file, or keep it with a =Status:
+deprecated= / =superseded by ADR-NNNN= line?
+
+Deleting keeps =docs/adr/= to the decisions that are true now; git history still
+has the old text. Deprecating keeps a pointer, which only helps when a reader
+might otherwise re-propose the old option.
+
+*** Recommendation
+Delete by default. Use =superseded by= only when a new ADR replaces the old one
+and the old option is likely to be suggested again.
+
+*** Answer
+Agreed
+
+** DONE Q2 ADR 0008 (ip-api.com lookup) is no longer true
+The code went the other way: ~resolveCountry~ checks the dev session and
+=CF-IPCountry= only, and a missing country prices at full price "so a page never
+waits on a network call". That is the option 0008 rejected.
+
+Options:
+- (a) Delete 0008. The header comment in =app/lib/country.server.ts= already
+  says why.
+- (b) Replace it with a new ADR "An unknown country pays full price",
+  superseding 0008.
+- (c) Rewrite 0008 in place.
+
+The new decision is surprising (it overcharges exactly the learners PPP is for)
+and was a real trade-off, but it is easy to reverse: one function.
+
+*** Recommendation
+(a) Delete. It fails "hard to reverse", and the code comment carries the reason.
+
+*** Answer
+Agreed
+
+** DONE Q3 ADR 0010 (emails go to the server log) is no longer true
+Refund emails now go through ~sendEmail~: Postmark when =POSTMARK_SERVER_TOKEN=
+is set, otherwise a JSON file in =.outbox/=.
+
+Options:
+- (a) Delete 0010. The header comment in =app/lib/mailer.server.ts= explains the
+  two transports.
+- (b) Replace it with "Send email through Postmark", superseding 0010.
+
+Postmark sits behind the ~MailTransport~ interface, so swapping provider is a
+new transport function, not a migration.
+
+*** Recommendation
+(a) Delete. Easy to reverse and not surprising.
+
+*** Answer
+Agreed
+
+** DONE Q4 Delete 0007 (icons) and 0011 (Prettier), keep their rules
+Both fail the test: swapping an icon library or a formatter setting is cheap,
+and neither choice surprises anyone. Each carries one rule worth keeping:
+- "All icons come from =lucide-react=; do not add a second icon library."
+- "Do not change =.prettierrc= to suit your own taste."
+
+=CODING_STANDARDS.md= is where rules for writing code already live.
+
+*** Recommendation
+Delete both ADRs and add the two rules to =CODING_STANDARDS.md= as short
+sections in its existing style.
+
+*** Answer
+AGreed
+
+** DONE Q5 ADR 0005 (money as integer cents)
+Hard to reverse (migrate every money column) and a real trade-off. It is the
+weakest on "surprising": integer cents is common practice. Still, a reader might
+"fix" an ~integer~ price into ~real~, and the ~formatPrice~ / round-once rule
+matters.
+
+Options:
+- (a) Keep it as it is.
+- (b) Delete it and move "money is integer cents, shown only through
+  ~formatPrice~" into =CODING_STANDARDS.md=.
+
+*** Recommendation
+(a) Keep. Of the three tests it is only weak on "surprising", and the rule ties
+to the schema.
+
+*** Answer
+Agreed
+
+** DONE Q6 Keep 0001, 0002, 0003, 0004, 0006 and 0009 untouched
+All six pass the three tests and match the code.
+
+*** Recommendation
+Yes, keep them unchanged.
+
+*** Answer
+OK
+
+** DONE Q7 Numbering after deletions
+Deleting leaves gaps (0007, 0008, 0010, 0011 gone).
+
+*** Recommendation
+Leave the gaps. Renumbering breaks links in commits, PRs and issues that cite
+"ADR-0009".
+
+*** Answer
+yes, ok
+
+* Summary
+- Q1 :: Delete failing ADRs by default; =superseded by= only when a new ADR
+  replaces one.
+- Q2 :: Delete 0008; the comment in =app/lib/country.server.ts= carries the
+  reason.
+- Q3 :: Delete 0010; the comment in =app/lib/mailer.server.ts= explains the
+  transports.
+- Q4 :: Delete 0007 and 0011; move their two rules into =CODING_STANDARDS.md=.
+- Q5 :: Keep 0005 as it is.
+- Q6 :: Keep 0001, 0002, 0003, 0004, 0006 and 0009 unchanged.
+- Q7 :: Leave gaps in the numbering.
