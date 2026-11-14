@@ -1,0 +1,200 @@
+#+title: Which notification vendors meet Cadence's requirements?
+#+date: 2026-11-14
+#+options: toc:nil ^:{}
+#+startup: indent
+
+Research for issue #3 (part of map #2). Sources are vendor docs and pricing
+pages, read on 2026-11-14. None of the doc pages consulted showed a "last
+updated" date unless stated, so treat every figure as "as of 2026-11-14".
+
+* Question
+Which real 3rd-party in-app Notification vendors meet Cadence's hard criteria:
+(1) real-time inbox delivery, (2) inbox secured by a server-signed HMAC or JWT
+token, (3) free tier without a credit card, (4) React SDK with a restylable
+prebuilt inbox or headless hooks, (5) safe under React Router 7 SSR?
+
+* Verdict in one paragraph
+All five vendors pass criteria 1 to 4. None documents React Router 7
+specifically, and every vendor's inbox is a client-only component (Knock, Novu
+and Courier say so explicitly for Next.js with ="use client"=; MagicBell and
+SuprSend are silent). So criterion 5 is met by the same pattern everywhere:
+render the inbox only on the client (after hydration) and keep the signed token
+generation in a loader. That is an integration detail, not a vendor
+differentiator. Shortlist: *Knock*, *Novu*, *SuprSend*.
+
+* Comparison table
+| Criterion                    | Knock                         | Novu                                 | MagicBell                       | Courier                          | SuprSend                           |
+|------------------------------+-------------------------------+--------------------------------------+---------------------------------+----------------------------------+------------------------------------|
+| Real-time inbox              | Yes, WebSocket                | Yes, WebSocket (=socketUrl=)         | Yes, WebSocket                  | Yes, WebSocket (opt-in call)     | Yes (reachability states)          |
+| Server-signed token          | JWT RS256, signed locally     | HMAC-SHA256 =subscriberHash=         | JWT HS256, signed locally       | JWT minted by API call           | JWT ES256, signed locally          |
+| Free tier, no card           | 10k msgs/mo, no card          | 10k runs/mo, no card                 | 1k deliveries/mo, no card       | 10k sends/mo, no card            | 10k notifs/mo, no card             |
+| Prebuilt inbox, restylable   | Yes, CSS vars =--rnf-*=       | Yes, =appearance= prop               | Yes, CSS vars and classes       | Yes, theme objects               | Yes, =theme= prop and overrides    |
+| Headless hooks               | Yes                           | Yes (=@novu/react= hooks)            | Yes (=@magicbell/react-headless=) | Yes (=useCourier()=)           | Yes (=@suprsend/react-core=)       |
+| SSR (client-only component)  | Documented ="use client"=     | Documented ="use client"=            | Not documented                  | Documented ="use client"=        | Not documented                     |
+| Environments on free         | Unlimited                     | 2 (Dev, Prod); custom on Team+       | 1 project; no env model found   | Test and Production, plus custom | Sandbox, Staging, Production       |
+| Node SDK / REST trigger      | =@knocklabs/node=             | =@novu/api=                          | =magicbell-js= (Node client)    | =@trycourier/courier=            | Node SDK and REST                  |
+| Recipient id                 | String, max 256 chars         | String =subscriberId=                | =user_external_id= string       | String =userId=                  | String =distinct_id=               |
+| Read/unread/archive          | seen, read, interacted, archived | read/unread, archive              | unseen, unread, read, archived  | read, opened, archived           | seen, read, archived               |
+| Per-user preferences         | Yes                           | Yes, built into Inbox                | Yes, by category and channel    | Yes, preference center           | Yes                                |
+| Email later                  | Yes                           | Yes                                  | Yes                             | Yes                              | Yes                                |
+| Open source / self-host      | No                            | MIT core; self-host Enterprise       | No                              | No (SDKs only)                   | Self-host Enterprise only          |
+| Next tier                    | Starter $250/mo, 50k msgs     | Pro from $30/mo, 30k runs            | Startup $249/mo, 50k deliveries | Business $0.005 per send         | Essentials $100/mo, 50k notifs     |
+| EU data residency            | Not yet ("by end of 2026")    | Yes, US + EU on Free                 | Not mentioned                   | Business plan                    | US or EU; plan unclear             |
+
+* Per-vendor notes
+** Knock
+- *Auth.* "Enhanced security mode" makes Knock reject client requests that lack
+  a signed user token. Token is a JWT with =sub= (user id), optionally =iat= and
+  =exp=, "signed against your private signing key using an RS256 algorithm",
+  out-of-band with no network call. [[https://docs.knock.app/in-app-ui/security-and-authentication][docs.knock.app/in-app-ui/security-and-authentication]]
+- *Real-time.* "Knock provides a real-time web socket connection for your users
+  to subscribe to new messages"; event =new-message= carries badge counts, may
+  be throttled. [[https://docs.knock.app/in-app-ui/api-overview][docs.knock.app/in-app-ui/api-overview]]
+- *React.* =@knocklabs/react= ships =NotificationFeedPopover=,
+  =NotificationFeed=, =NotificationIconButton= and "a complete set of React
+  hooks" for custom UI. Feed styling via CSS variables prefixed
+  =--rnf-=. [[https://docs.knock.app/in-app-ui/react/overview][docs.knock.app/in-app-ui/react/overview]], [[https://docs.knock.app/in-app-ui/react/feed][docs.knock.app/in-app-ui/react/feed]]
+- *SSR.* Next.js quickstart wraps the feed in a ="use client"= component;
+  =@knocklabs/node= triggers from the server. Found via the docs search and
+  =https://docs.knock.app/llms-full.txt=; I did not open the quickstart page
+  directly.
+- *Statuses.* unseen, seen, read, interacted, archived; archived hidden from the
+  feed by default. [[https://docs.knock.app/send-notifications/message-statuses][docs.knock.app/send-notifications/message-statuses]]
+- *Recipient id.* Max 256 chars, no =/= or =#=, immutable; recommend a primary
+  key. Examples are all strings; numeric ids are not addressed, so send
+  =String(user.id)=. [[https://docs.knock.app/concepts/users][docs.knock.app/concepts/users]]
+- *Environments.* Production plus Development, plus ordered custom environments
+  (staging); content promotes upward, users and messages never copy. Pricing
+  says unlimited environments on Free. [[https://docs.knock.app/concepts/environments][docs.knock.app/concepts/environments]]
+- *Pricing.* Free: 10,000 messages/mo, "no credit card required". Starter:
+  $250/mo, 50,000 messages then $0.005 each. [[https://knock.app/pricing][knock.app/pricing]]
+- *Residency.* "We expect to support EU data residency by the end of 2026." Not
+  live as far as I could verify. [[https://docs.knock.app/manage-your-account/knock-plans][docs.knock.app/manage-your-account/knock-plans]]
+
+** Novu
+- *Auth.* HMAC-SHA256 of the =subscriberId= keyed with the secret key, hex,
+  passed as =subscriberHash=. "If HMAC encryption is active ... and
+  =subscriberHash= is not provided, the Inbox will not load." Toggle is per
+  environment in the In-App provider. [[https://docs.novu.co/platform/inbox/prepare-for-production][docs.novu.co/platform/inbox/prepare-for-production]]
+- *Real-time.* Overview says marking read "syncs to the Novu backend in real
+  time"; production page mentions =socketUrl= (=wss://eu.socket.novu.co= for
+  EU). Transport is a WebSocket by inference from that URL; not described in
+  prose. [[https://docs.novu.co/platform/inbox/overview][docs.novu.co/platform/inbox/overview]]
+- *React.* =@novu/react=, React 18+ (19 supported). Prebuilt =<Inbox />= with
+  composable Bell, Notifications, InboxContent, Preferences. Styling through
+  =appearance= (=baseTheme=, =variables=, =elements=, =icons=, =animations=);
+  elements accept Tailwind or CSS Module classes. Archive and archive-all
+  exist. [[https://docs.novu.co/platform/inbox/configuration/styling][docs.novu.co/platform/inbox/configuration/styling]]
+- *SSR.* Next.js quickstart component starts with ="use client"=; no other SSR
+  notes. [[https://docs.novu.co/platform/quickstart/nextjs][docs.novu.co/platform/quickstart/nextjs]]
+- *Environments.* Development and Production on every account; Production is
+  view-only for workflows, changes are published from Development. Custom
+  environments (staging, QA) only on Team and Enterprise. [[https://docs.novu.co/platform/concepts/environments][docs.novu.co/platform/concepts/environments]]
+- *Pricing.* Free: 10,000 workflow runs/mo, max 5 workflows, 2 environments, 3
+  team members, no credit card. Pro: from $30/mo, 30,000+ runs, $1.20 per extra
+  1k. [[https://novu.co/pricing][novu.co/pricing]]
+- *Residency.* "US + EU data residency" on Free. [[https://novu.co/pricing][novu.co/pricing]]
+- *Open source.* Repo is "Open Core": MIT core, =enterprise= folder under a
+  commercial licence. Pricing lists "Self-hosted (Enterprise)". *Conflict:* the
+  MIT core can be run yourself, but Novu only sells/supports self-hosting on
+  Enterprise; I did not verify what the community self-host includes today. [[https://github.com/novuhq/novu][github.com/novuhq/novu]]
+- *Watch out.* Free cap of 5 workflows: each Notification type is likely one
+  workflow, so this caps Cadence's first types.
+
+** MagicBell
+- *Auth.* User JWT "signed with your project's Secret Key using the =HS256=
+  algorithm"; claims =user_email= and/or =user_external_id=, plus =api_key=.
+  Examples use one-year expiry. [[https://www.magicbell.com/docs/api/authentication/user][magicbell.com/docs/api/authentication/user]]
+- *Real-time.* =magicbell-js/realtime= pushes over WebSocket. [[https://www.magicbell.com/docs/libraries/magicbell-js][magicbell.com/docs/libraries/magicbell-js]]
+- *React.* =@magicbell/react= with =ContextProvider= (=token= prop), =Inbox=,
+  =FloatingInbox=; restyle via predefined class names and CSS variables
+  (=--magicbell-bg-default=). Headless: =@magicbell/react-headless=. [[https://www.magicbell.com/docs/libraries/react][magicbell.com/docs/libraries/react]]
+- *SSR.* Not documented. Not verified.
+- *Statuses and preferences.* unseen, unread, read, archived; preferences by
+  category and channel. [[https://www.magicbell.com/docs/api/reference][magicbell.com/docs/api/reference]]
+- *Environments.* No environment model found; Free has 1 project, so QA mode
+  would need a second project, which needs a paid tier. Not verified beyond
+  pricing page.
+- *Pricing.* Builder $0: 1,000 deliveries/mo, 1 project; "No credit card
+  required" (homepage FAQ). Startup $249/mo: 50,000 deliveries, 5 projects. [[https://www.magicbell.com/pricing][magicbell.com/pricing]]
+- *Residency.* Not mentioned. Not verified.
+
+** Courier
+- *Auth.* JWT, but minted by calling =POST /auth/issue-token= with the API key
+  and a scope string (=user_id:... inbox:read:messages inbox:write:events=). Set
+  =expires_in= or the token never expires; SDKs do not refresh. Costs one
+  network call per token, unlike local signing. [[https://www.courier.com/docs/platform/inbox/authentication][courier.com/docs/platform/inbox/authentication]]
+- *Real-time.* =inbox.listenForUpdates()= opens the WebSocket; without it the
+  inbox loads once. [[https://www.courier.com/docs/sdk-libraries/courier-react-web][courier.com/docs/sdk-libraries/courier-react-web]]
+- *React.* =@trycourier/courier-react= (React 18+): =<CourierInbox />=,
+  =<CourierInboxPopupMenu />=, theme objects, =useCourier()= for custom UI.
+  Messages have =read=, =opened=, =archived= timestamps.
+- *SSR.* "render only on the client"; ="use client"= in Next.js 13+.
+- *Environments.* Every workspace starts with Production and Test; custom
+  environments (dev, staging, QA) each with own keys and data. Pricing page
+  lists custom environments as Enterprise, which conflicts with the workspace
+  docs. [[https://courier.com/docs/platform/workspaces/workspaces-overview][courier.com/docs/platform/workspaces/workspaces-overview]]
+- *Pricing.* Developer: 10k sends/mo free, no credit card (Courier marketing
+  pages; pricing page itself only says "Add a credit card to move to Courier's
+  Business plan"). Business: $0.005 per send, pay as you go. [[https://www.courier.com/pricing][courier.com/pricing]]
+- *Residency.* "EU Data Residency" listed under Business; EU tokens minted at
+  =api.eu.courier.com=.
+
+** SuprSend
+- *Auth.* "Enhanced security mode" rejects requests without a signed user token.
+  JWT ES256 signed locally with a dashboard-generated key; claims =entity_type:
+  "subscriber"=, =entity_id=, =iat=, =exp=, optional =scope.tenant_id=.
+  =refreshUserToken= callback handles expiry. [[https://docs.suprsend.com/docs/client-authentication][docs.suprsend.com/docs/client-authentication]]
+- *React.* =@suprsend/react= (drop-in =Inbox=, theme, component overrides) on
+  top of =@suprsend/react-core= (=SuprSendFeedProvider=, =useFeedClient=,
+  =useFeedData=). Old =@suprsend/react-inbox= is end of
+  support. [[https://docs.suprsend.com/docs/react-sdk][docs.suprsend.com/docs/react-sdk]], [[https://docs.suprsend.com/docs/react-headless][docs.suprsend.com/docs/react-headless]]
+- *Real-time.* Feed exposes =reachability= (ONLINE, CONNECTING, ...) and emits
+  =feed.new_notification=; implies a live connection. Transport not named in
+  what I read.
+- *SSR.* Not documented beyond env var prefixes for Next.js. Not verified.
+- *Environments.* Sandbox (trial only), Staging, Production workspaces on every
+  account; =suprsend sync --from staging --to production= promotes assets. [[https://docs.suprsend.com/docs/guides/modelling-customers-workspace-vs-tenant][docs.suprsend.com/docs/guides/modelling-customers-workspace-vs-tenant]]
+- *Pricing.* Free: 10k notifications/mo, "No Credit Card required". Essentials:
+  $100/mo, 50k, $2 per extra 1k. [[https://www.suprsend.com/pricing][suprsend.com/pricing]] (page may be old; search
+  index showed it as indexed long ago).
+- *Residency.* "US or EU data residency" on the enterprise page; pricing lists
+  custom regions under Enterprise. Which plans can pick EU is unclear. [[https://www.suprsend.com/enterprise][suprsend.com/enterprise]]
+- *Self-host.* Enterprise only.
+
+* Shortlist
+1. *Knock.* Strongest fit for the hard criteria as written: local RS256 JWT
+   signing (no network call in the loader), unlimited environments on Free
+   (clean QA mode), rich status model (seen, read, archived), CSS-variable
+   restyling plus headless hooks, documented client-component pattern. Costs:
+   $250/mo next tier, no EU residency yet, not open source.
+2. *Novu.* Best on the nice-to-haves: MIT open core, US + EU residency on Free,
+   cheapest next tier ($30/mo). HMAC =subscriberHash= is simple to compute in a
+   loader. Costs: Free caps at 5 workflows and 2 environments (Dev and Prod,
+   which is still enough for a QA mode on Dev), Production is read-only for
+   workflows so changes always flow through publish.
+3. *SuprSend.* Middle ground: ES256 local signing with refresh callback, three
+   workspaces including Staging on Free, $100/mo next tier, US or EU residency.
+   Costs: SSR undocumented, pricing page may be stale, smaller ecosystem.
+
+Dropped: *MagicBell* (1k deliveries/mo and a single project on Free, no
+environment model, SSR and residency undocumented). *Courier* (fine product, but
+token minting needs an API round-trip per token and the SDK never refreshes;
+environments conflict between docs and pricing).
+
+* Not verified / open flags
+- No vendor documents React Router 7. SSR safety is inferred from Next.js ="use
+  client"= guidance; a spike should confirm the inbox renders client-only
+  without hydration errors.
+- Novu real-time transport inferred from =socketUrl=; SuprSend transport not
+  named.
+- Knock EU residency: promised "by end of 2026", not confirmed live.
+- Novu self-host: MIT core exists, but scope of community self-host vs
+  Enterprise not checked.
+- MagicBell: SSR, environments, data residency undocumented.
+- Courier: custom environments on Free conflict (workspace docs say any
+  workspace; pricing says Enterprise).
+- SuprSend: which plan allows choosing the EU region.
+- Integer user ids: every vendor takes a string id; send =String(user.id)=. No
+  vendor documents numeric ids explicitly.
+- Other vendors (for example Engagespot, NotificationAPI) not evaluated.
