@@ -11,9 +11,12 @@ import type { Db } from "~/lib/refunds.server";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "~/lib/comments";
 import {
   excerpt,
+  type Deliverable,
   type MarkReadIntent,
   type NotifyIntent,
 } from "~/lib/notifications.server";
+
+type LessonComment = typeof comments.$inferSelect;
 
 // ─── Lesson Comments ───
 // Creating, editing and soft-deleting Lesson Questions and Lesson Replies.
@@ -59,8 +62,9 @@ export function createLessonComment(
     throw new Error("Lesson not found");
   }
 
+  let parent: LessonComment | undefined;
   if (parentId !== null) {
-    const parent = findLessonComment(db, parentId);
+    parent = findLessonComment(db, parentId);
     if (!parent) {
       throw new Error("Parent comment not found");
     }
@@ -78,8 +82,10 @@ export function createLessonComment(
     .returning()
     .get();
 
-  const notify: NotifyIntent[] =
-    parentId === null ? lessonQuestionPosted(db, comment) : [];
+  // Notification intents for `deliver`, to hand over after the write.
+  const notify: NotifyIntent[] = parent
+    ? lessonReplyPosted(db, comment, parent)
+    : lessonQuestionPosted(db, comment);
   const markRead: MarkReadIntent[] =
     parentId !== null && isAnswerer(db, authorId, lessonId)
       ? [{ type: "lesson-question-posted", subjectId: parentId }]
@@ -109,7 +115,49 @@ function isAnswerer(db: Db, userId: number, lessonId: number): boolean {
   return place?.instructorId === userId;
 }
 
-type LessonComment = typeof comments.$inferSelect;
+// A Lesson Reply tells the Lesson Question's author, whichever page it was
+// posted from. Nobody hears about a reply under a deleted Lesson Question,
+// and `deliver` drops the author replying in their own thread.
+function lessonReplyPosted(
+  db: Db,
+  reply: LessonComment,
+  question: LessonComment
+): NotifyIntent[] {
+  if (question.deletedAt !== null) return [];
+
+  const replier = findPerson(db, reply.userId);
+  const author = findPerson(db, question.userId);
+  const lesson = db
+    .select({ title: lessons.title, courseSlug: courses.slug })
+    .from(lessons)
+    .innerJoin(modules, eq(lessons.moduleId, modules.id))
+    .innerJoin(courses, eq(modules.courseId, courses.id))
+    .where(eq(lessons.id, reply.lessonId))
+    .get();
+  if (!replier || !author || !lesson) return [];
+
+  return [
+    {
+      type: "lesson-reply-posted",
+      actor: replier,
+      recipients: [author],
+      data: {
+        replierName: replier.name,
+        lessonTitle: lesson.title,
+        excerpt: excerpt(reply.body),
+        url: `/courses/${lesson.courseSlug}/lessons/${reply.lessonId}#comment-${question.id}`,
+      },
+    },
+  ];
+}
+
+function findPerson(db: Db, userId: number) {
+  return db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+}
 
 // The course's Instructor hears of a Lesson Question only when it enters
 // their unanswered-questions queue: not when they or a Platform Admin
@@ -165,13 +213,14 @@ function lessonQuestionPosted(
 
 // Only the author or staff (Platform Admin or the course's Instructor) may
 // delete. Deleting an already deleted Lesson Comment changes nothing.
+// Deleting notifies nobody.
 export function deleteLessonComment(
   db: Db,
   commentId: number,
   userId: number,
   isStaff: boolean,
   now: Date
-) {
+): LessonComment & Deliverable {
   const existing = findLessonComment(db, commentId);
   if (!existing) {
     throw new Error("Comment not found");
@@ -201,13 +250,14 @@ export function deleteLessonComment(
 }
 
 // Only the author may edit, and only while the Lesson Comment is not deleted.
+// Editing notifies nobody.
 export function editLessonComment(
   db: Db,
   commentId: number,
   userId: number,
   body: string,
   now: Date
-) {
+): LessonComment & Deliverable {
   const trimmed = validBody(body);
 
   const existing = findLessonComment(db, commentId);

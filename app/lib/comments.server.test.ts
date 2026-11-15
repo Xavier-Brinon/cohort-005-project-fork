@@ -460,3 +460,169 @@ describe("marking a lesson-question-posted Notification read", () => {
     expect(notifier.sent).toEqual([]);
   });
 });
+
+describe("lesson-reply-posted Notifications", () => {
+  it("notifies nobody when the author replies in their own thread", async () => {
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      "Why?"
+    );
+    const reply = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      question.id,
+      "Never mind, I found it."
+    );
+
+    const notifier = fakeNotifier();
+    await deliver(reply, notifier);
+
+    expect(notifier.sent).toEqual([]);
+  });
+
+  it("notifies the Lesson Question's author when the Instructor replies", async () => {
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      "Why?"
+    );
+    const reply = createLessonComment(
+      db,
+      base.instructor.id,
+      lessonId,
+      question.id,
+      "Because the compiler\n\nsays so."
+    );
+
+    const notifier = fakeNotifier();
+    await deliver(reply, notifier);
+
+    expect(notifier.sent).toEqual([
+      {
+        type: "lesson-reply-posted",
+        actor: { id: base.instructor.id, name: "Test Instructor" },
+        recipients: [{ id: base.user.id, name: "Test User" }],
+        data: {
+          replierName: "Test Instructor",
+          lessonTitle: "Lesson 1",
+          excerpt: "Because the compiler says so.",
+          url: `/courses/test-course/lessons/${lessonId}#comment-${question.id}`,
+        },
+      },
+    ]);
+  });
+
+  it("notifies the author when another Student replies, with the reply cut to an excerpt", async () => {
+    const other = db
+      .insert(schema.users)
+      .values({
+        name: "Priya Student",
+        email: "priya@example.com",
+        role: schema.UserRole.Student,
+      })
+      .returning()
+      .get();
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      "Why?"
+    );
+    const reply = createLessonComment(
+      db,
+      other.id,
+      lessonId,
+      question.id,
+      "x".repeat(300)
+    );
+
+    const notifier = fakeNotifier();
+    await deliver(reply, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    const [sent] = notifier.sent;
+    expect(sent.actor).toEqual({ id: other.id, name: "Priya Student" });
+    expect(sent.recipients).toEqual([{ id: base.user.id, name: "Test User" }]);
+    expect(sent.data).toMatchObject({
+      replierName: "Priya Student",
+      excerpt: `${"x".repeat(139)}…`,
+    });
+  });
+
+  it("notifies nobody about a Lesson Reply under a deleted Lesson Question", async () => {
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      "Why?"
+    );
+    deleteLessonComment(
+      db,
+      question.id,
+      base.user.id,
+      false,
+      new Date("2026-10-06T12:00:00.000Z")
+    );
+    const reply = createLessonComment(
+      db,
+      base.instructor.id,
+      lessonId,
+      question.id,
+      "Because."
+    );
+
+    const notifier = fakeNotifier();
+    await deliver(reply, notifier);
+
+    expect(notifier.sent).toEqual([]);
+  });
+
+  it("creates no Notification when a Lesson Reply is edited or deleted", async () => {
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      "Why?"
+    );
+    const reply = createLessonComment(
+      db,
+      base.instructor.id,
+      lessonId,
+      question.id,
+      "Because."
+    );
+
+    const notifier = fakeNotifier();
+    await deliver(
+      editLessonComment(
+        db,
+        reply.id,
+        base.instructor.id,
+        "Because, as the docs say.",
+        new Date("2026-10-06T12:00:00.000Z")
+      ),
+      notifier
+    );
+    await deliver(
+      deleteLessonComment(
+        db,
+        reply.id,
+        base.instructor.id,
+        true,
+        new Date("2026-10-07T12:00:00.000Z")
+      ),
+      notifier
+    );
+
+    expect(notifier.sent).toEqual([]);
+  });
+});

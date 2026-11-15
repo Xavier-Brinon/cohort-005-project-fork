@@ -168,17 +168,15 @@ export async function action({ request }: Route.ActionArgs) {
     throw data("Select a user from the DevUI panel.", { status: 401 });
   }
 
+  let reply;
   try {
-    const reply = createLessonComment(
+    reply = createLessonComment(
       db,
       userId,
       question.lessonId,
       question.id,
       parsed.data.body
     );
-    // The Lesson Reply is saved; a Notification failure is logged, never
-    // thrown.
-    await deliver(reply);
   } catch (error) {
     if (error instanceof Error) {
       return { ok: false, error: error.message };
@@ -186,6 +184,7 @@ export async function action({ request }: Route.ActionArgs) {
     throw error;
   }
 
+  await deliver(reply);
   return { ok: true };
 }
 

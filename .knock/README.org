@@ -20,7 +20,11 @@ knock.json                      # { "knockDir": ".knock" }
 │   ├── workflow.json
 │   └── in_app_feed_1/
 │       └── markdown_body.md
-└── lesson-question-posted/
+├── lesson-question-posted/
+│   ├── workflow.json
+│   └── in_app_feed_1/
+│       └── markdown_body.md
+└── lesson-reply-posted/        # action URL jumps to #comment-<id>
     ├── workflow.json
     └── in_app_feed_1/
         └── markdown_body.md
