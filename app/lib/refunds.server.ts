@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
-import type { Db } from "~/db";
+import type { Db, Queryable } from "~/db";
 import {
   coupons,
   courses,
@@ -17,6 +17,7 @@ import {
   UserRole,
 } from "~/db/schema";
 import { formatPrice } from "~/lib/utils";
+import { findPerson, toPerson } from "~/lib/people.server";
 import {
   excerpt,
   type MarkReadIntent,
@@ -38,8 +39,6 @@ import {
 // Every function takes the database first, so tests can hand in an in-memory
 // one. Uses positional parameters (project convention).
 
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-type Queryable = Db | Tx;
 
 type Purchase = typeof purchases.$inferSelect;
 type Seat = typeof coupons.$inferSelect;
@@ -385,7 +384,7 @@ export function raiseRefundRequest(
   if (!check.ok) return check;
 
   const { purchase } = check;
-  const buyer = db.select().from(users).where(eq(users.id, buyerId)).get();
+  const buyer = findPerson(db, buyerId);
   const course = db
     .select()
     .from(courses)
@@ -416,7 +415,7 @@ export function raiseRefundRequest(
     notify: [
       {
         type: "refund-request-opened",
-        actor: { id: buyer.id, name: buyer.name },
+        actor: toPerson(buyer),
         recipients: listPlatformAdmins(db),
         data: {
           refundRequestId: refundRequest.id,
@@ -794,8 +793,8 @@ function decided(
   decision: Decision,
   note: string | null
 ): DecisionResult {
-  const buyer = getPerson(db, purchase.userId);
-  const platformAdmin = getPerson(db, platformAdminId);
+  const buyer = findPerson(db, purchase.userId);
+  const platformAdmin = findPerson(db, platformAdminId);
   const course = db
     .select()
     .from(courses)
@@ -808,8 +807,8 @@ function decided(
       ? [
           {
             type: "refund-request-decided",
-            actor: { id: platformAdmin.id, name: platformAdmin.name },
-            recipients: [{ id: buyer.id, name: buyer.name }],
+            actor: toPerson(platformAdmin),
+            recipients: [toPerson(buyer)],
             data: {
               decision,
               courseTitle: course.title,
@@ -831,14 +830,6 @@ function decided(
     notify,
     markRead: [{ type: "refund-request-opened", subjectId: refundRequestId }],
   };
-}
-
-function getPerson(db: Queryable, userId: number) {
-  return db
-    .select({ id: users.id, name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
-    .get();
 }
 
 /** The email the buyer gets once their Refund Request is decided. */
