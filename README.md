@@ -29,7 +29,7 @@ This course is written for Opus-level models. Budget for it:
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v22+ (ships with npm v10+). This repo uses **npm**, not pnpm.
+- [mise](https://mise.jdx.dev/), which installs the pinned Node.js (v26) and [aube](https://aube.sh/) from `mise.toml`. This fork uses **aube**, not npm: the lockfile is `aube-lock.yaml`.
 - [git](https://git-scm.com/)
 - A GitHub account and the [GitHub CLI](https://cli.github.com/) (`gh`), logged in: run `gh auth status` to check, or `gh auth login` to sign in
 - [jq](https://jqlang.org/download/), which some of the course scripts need
@@ -39,7 +39,8 @@ This course is written for Opus-level models. Budget for it:
 Quick check:
 
 ```bash
-node --version   # v22 or later
+mise install     # node and aube from mise.toml
+node --version   # v26
 git --version
 gh auth status
 jq --version
@@ -53,24 +54,24 @@ git clone https://github.com/ai-hero-dev/cohort-005-project.git
 cd cohort-005-project
 
 # 2. Fork it into your own GitHub repo
-npx ai-hero-cli fork
+aube dlx ai-hero-cli fork
 
 # 3. Install dependencies
-npm install
+aube install
 
 # 4. Run database migrations and seed data
-npm run db:migrate
-npm run db:seed
+aube run db:migrate
+aube run db:seed
 
 # 5. Start the dev server
-npm run dev
+aube run dev
 ```
 
 The app will be running at `http://localhost:5173`. Use the floating DevUI panel to switch between users.
 
 ### What `fork` does
 
-`npx ai-hero-cli fork` turns your clone into your own repo:
+`aube dlx ai-hero-cli fork` turns your clone into your own repo:
 
 - It replaces the folder's git history with a single fresh commit on `main`.
 - It creates a new **public** GitHub repo on your account and pushes to it as `origin`.
@@ -86,19 +87,22 @@ You don't need these yet, but you'll be asked for them along the way. Both have 
 
 ## Scripts
 
-| Command                      | Description                                  |
-| ---------------------------- | -------------------------------------------- |
-| `npm run dev`                | Start the development server                 |
-| `npm run build`              | Build for production                         |
-| `npm run test`               | Run tests with Vitest                        |
-| `npm run test:watch`         | Run tests in watch mode                      |
-| `npm run typecheck`          | Type-check the project                       |
-| `npm run db:generate`        | Generate a migration from the schema         |
-| `npm run db:migrate`         | Run database migrations                      |
-| `npm run db:seed`            | Reseed the database (drops and recreates it) |
-| `npm run reset <slug>`       | Reset your repo to a lesson checkpoint       |
-| `npm run cherry-pick <slug>` | Cherry-pick a lesson's solution              |
-| `npm run pull`               | Merge the course repo's latest `main` in     |
+| Command                       | Description                                  |
+| ----------------------------- | -------------------------------------------- |
+| `aube run dev`                | Start the development server                 |
+| `aube run build`              | Build for production                         |
+| `aube run test`               | Run tests with Vitest                        |
+| `aube run test:watch`         | Run tests in watch mode                      |
+| `aube run typecheck`          | Type-check the project                       |
+| `aube run lint`               | Lint with oxlint                             |
+| `aube run format`             | Format with oxfmt (`format:check` to check)  |
+| `aube run db:generate`        | Generate a migration from the schema         |
+| `aube run db:migrate`         | Run database migrations                      |
+| `aube run db:seed`            | Reseed the database (drops and recreates it) |
+| `aube run reset <slug>`       | Reset your repo to a lesson checkpoint       |
+| `aube run cherry-pick <slug>` | Cherry-pick a lesson's solution              |
+| `aube run pull`               | Merge the course repo's latest `main` in     |
+| `aube run knock:check`        | Compare Knock workflows with `.knock/`       |
 
 ## Course Structure
 
@@ -119,32 +123,32 @@ Each lesson that involves code has a checkpoint commit on the `live-run-through`
 
 ```bash
 # Reset to a lesson's checkpoint (run with no slug to pick from a list)
-npm run reset <slug>
+aube run reset <slug>
 
 # Cherry-pick a lesson's solution if you want to skip ahead
-npm run cherry-pick <slug>
+aube run cherry-pick <slug>
 ```
 
-`reset` is destructive: it discards your commits and uncommitted changes that aren't in the checkpoint. It asks before it does, but commit or branch anything you want to keep first. `npm run reset main` takes you back to the starting point.
+`reset` is destructive: it discards your commits and uncommitted changes that aren't in the checkpoint. It asks before it does, but commit or branch anything you want to keep first. `aube run reset main` takes you back to the starting point.
 
 After a reset or cherry-pick, the code may need a different database or new dependencies. If in doubt, run all three:
 
 ```bash
-npm install         # if package-lock.json changed
-npm run db:migrate  # if the schema changed
-npm run db:seed     # if the seed data changed
+aube install         # if aube-lock.yaml changed
+aube run db:migrate  # if the schema changed
+aube run db:seed     # if the seed data changed
 ```
 
-Your `.env` is gitignored, so it survives a reset.
+Your `.env` is gitignored, so it survives a reset. The course checkpoints use npm, so a reset to one also brings back `package-lock.json` and drops the aube, mise and oxc setup from this fork. `aube run pull` keeps the setup but can reintroduce `package-lock.json` changes: delete the file, keep `aube-lock.yaml`, and run `aube install` to resolve the merge.
 
 ## Troubleshooting
 
 ### "Could not locate the bindings file"
 
-better-sqlite3's native binding was never built. This usually means `ignore-scripts=true` is set in your own npm config, so `npm install` skipped its install script. Rebuild it:
+better-sqlite3's native binding was never built. aube only runs the install scripts listed under `allowBuilds` in `aube-workspace.yaml`; `aube ignored-builds` shows what it skipped. With `better-sqlite3` listed, rebuild it:
 
 ```bash
-npm rebuild better-sqlite3 --ignore-scripts=false
+aube rebuild better-sqlite3
 ```
 
 ## Tech Stack

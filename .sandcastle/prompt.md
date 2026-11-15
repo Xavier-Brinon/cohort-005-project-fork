@@ -32,8 +32,10 @@ Complete the task.
 
 Before committing, run the feedback loops:
 
-- `npm run test` to run the tests
-- `npm run typecheck` to run the type checker
+- `aube install` first, if `node_modules` is missing
+- `aube run test` to run the tests
+- `aube run typecheck` to run the type checker
+- `aube run lint` and `aube run format` (oxlint, oxfmt)
 
 # COMMIT
 

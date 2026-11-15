@@ -11,7 +11,7 @@ goes over the wire.
 ## Run it
 
 ```bash
-npm run request-logger
+aube run request-logger
 ```
 
 The first time you run it, it asks which agent you use, then which model
@@ -66,7 +66,7 @@ Endpoints that require credentials for model listing are not supported.
 To change a remembered answer:
 
 ```bash
-npm run request-logger -- --force
+aube run request-logger -- --force
 ```
 
 This forgets the old answer first, then keeps the new one in its place. It does
@@ -76,13 +76,13 @@ agent that cannot be logged, nothing is kept, and the old answer is gone too.
 To use a different port:
 
 ```bash
-PORT=9000 npm run request-logger
+PORT=9000 aube run request-logger
 ```
 
 On Windows, run that in PowerShell (not Command Prompt) as:
 
 ```powershell
-$env:PORT = 9000; npm run request-logger
+$env:PORT = 9000; aube run request-logger
 ```
 
 A remembered answer is kept in `request-logger/.agent-choice.json`, which is
@@ -314,7 +314,7 @@ The failure modes here are quiet ones. An empty folder looks the same whichever
 of these happened:
 
 1. **You changed agent and forgot to say so.** Run
-   `npm run request-logger -- --force`. The line at the top of the console names
+   `aube run request-logger -- --force`. The line at the top of the console names
    the agent the tool currently thinks you use.
 2. **Your agent chose a WebSocket.** This tool reads HTTP. Some Copilot models,
    and Pi's default transport, negotiate a WebSocket instead, and a WebSocket
