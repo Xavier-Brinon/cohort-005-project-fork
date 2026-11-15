@@ -47,6 +47,52 @@ describe("loadLocalWorkflows", () => {
     ]);
   });
 
+  it("drops the metadata `knock workflow pull` writes, so a pulled workflow shows no drift", () => {
+    const dir = workflowsDir({
+      "greeting/workflow.json": JSON.stringify({
+        $schema: "https://schemas.knock.app/cli/workflow.json",
+        name: "Greeting",
+        steps: [
+          {
+            ref: "in_app_feed_1",
+            type: "channel",
+            template: { markdown_body: "Hello" },
+            __readonly: { channel_type: "in_app_feed" },
+          },
+        ],
+        __readonly: { key: "greeting", active: true, valid: true },
+      }),
+    });
+    const [{ workflow }] = loadLocalWorkflows(dir);
+
+    expect(workflow).toEqual({
+      name: "Greeting",
+      steps: [
+        {
+          ref: "in_app_feed_1",
+          type: "channel",
+          template: { markdown_body: "Hello" },
+        },
+      ],
+    });
+    const remote = {
+      key: "greeting",
+      active: true,
+      valid: true,
+      sha: "abc",
+      name: "Greeting",
+      steps: [
+        {
+          ref: "in_app_feed_1",
+          type: "channel",
+          channel_type: "in_app_feed",
+          template: { markdown_body: "Hello" },
+        },
+      ],
+    };
+    expect(findDrift(workflow, remote)).toEqual([]);
+  });
+
   it("rejects a workflow.json without a name or steps", () => {
     const dir = workflowsDir({ "broken/workflow.json": "{}" });
     expect(() => loadLocalWorkflows(dir)).toThrow("broken/workflow.json");

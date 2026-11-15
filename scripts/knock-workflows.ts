@@ -19,6 +19,10 @@ export type Drift = { path: string; local: unknown; remote: unknown };
 
 const FILE_REFERENCE_SUFFIX = "@";
 
+// `knock workflow pull` writes these for the CLI's own use. The CLI drops them
+// before it talks to Knock, and Knock never returns them in this shape.
+const CLI_METADATA_KEYS = new Set(["__readonly", "$schema"]);
+
 // The CLI layout stores long fields in files: `"markdown_body@": "in_app_feed_1/markdown_body.md"`.
 // The API wants the contents inline under the key without the `@`.
 function inlineFileReferences(value: unknown, workflowDir: string): unknown {
@@ -28,15 +32,17 @@ function inlineFileReferences(value: unknown, workflowDir: string): unknown {
   if (value === null || typeof value !== "object") return value;
 
   return Object.fromEntries(
-    Object.entries(value).map(([key, field]) => {
-      if (key.endsWith(FILE_REFERENCE_SUFFIX) && typeof field === "string") {
-        return [
-          key.slice(0, -FILE_REFERENCE_SUFFIX.length),
-          readFileSync(join(workflowDir, field), "utf8"),
-        ];
-      }
-      return [key, inlineFileReferences(field, workflowDir)];
-    })
+    Object.entries(value)
+      .filter(([key]) => !CLI_METADATA_KEYS.has(key))
+      .map(([key, field]) => {
+        if (key.endsWith(FILE_REFERENCE_SUFFIX) && typeof field === "string") {
+          return [
+            key.slice(0, -FILE_REFERENCE_SUFFIX.length),
+            readFileSync(join(workflowDir, field), "utf8"),
+          ];
+        }
+        return [key, inlineFileReferences(field, workflowDir)];
+      })
   );
 }
 
