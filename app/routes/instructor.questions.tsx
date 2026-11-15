@@ -14,6 +14,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { cn, daysSince, formatRelativeTime } from "~/lib/utils";
 import { MAX_COMMENT_LENGTH } from "~/lib/comments";
 import { createLessonComment, findLessonComment } from "~/lib/comments.server";
+import { deliver } from "~/lib/notifications.server";
 import { parseFormData } from "~/lib/validation";
 import { db } from "~/db";
 import {
@@ -168,13 +169,16 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   try {
-    createLessonComment(
+    const reply = createLessonComment(
       db,
       userId,
       question.lessonId,
       question.id,
       parsed.data.body
     );
+    // The Lesson Reply is saved; a Notification failure is logged, never
+    // thrown.
+    await deliver(reply);
   } catch (error) {
     if (error instanceof Error) {
       return { ok: false, error: error.message };
