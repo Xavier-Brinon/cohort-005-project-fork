@@ -39,8 +39,7 @@ This course is written for Opus-level models. Budget for it:
 Quick check:
 
 ```bash
-mise install     # node and aube from mise.toml
-node --version   # v26
+mise --version
 git --version
 gh auth status
 jq --version
@@ -49,12 +48,14 @@ jq --version
 ## Getting Started
 
 ```bash
-# 1. Clone the course repo
-git clone https://github.com/ai-hero-dev/cohort-005-project.git
-cd cohort-005-project
+# 1. Clone this fork
+git clone https://github.com/Xavier-Brinon/cohort-005-project-fork.git
+cd cohort-005-project-fork
 
-# 2. Fork it into your own GitHub repo
-aube dlx ai-hero-cli fork
+# 2. Install node and aube from mise.toml (trust it the first time)
+mise trust
+mise install
+node --version   # v26
 
 # 3. Install dependencies
 aube install
@@ -71,7 +72,7 @@ The app will be running at `http://localhost:5173`. Use the floating DevUI panel
 
 ### What `fork` does
 
-`aube dlx ai-hero-cli fork` turns your clone into your own repo:
+This repo was made from the course repo with `npx ai-hero-cli fork`, which turns a clone into your own repo:
 
 - It replaces the folder's git history with a single fresh commit on `main`.
 - It creates a new **public** GitHub repo on your account and pushes to it as `origin`.
