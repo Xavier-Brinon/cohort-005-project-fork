@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { PurchaseKind } from "~/lib/refunds.server";
+import type { PurchaseKind } from "~/lib/refund-rules";
 
 // ─── In-app Notifications ───
 // Knock delivers every Notification (docs/adr/0013). This module is the one

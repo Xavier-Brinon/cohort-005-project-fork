@@ -6,6 +6,9 @@ export const REFUND_WINDOW_DAYS = 14;
 export const REFUND_WATCH_LIMIT_SECONDS = 60 * 60;
 export const REFUND_COMPLETION_LIMIT = 0.5;
 
+/** What was bought: one learner's own access, or Seats for a team. */
+export type PurchaseKind = "individual_purchase" | "team_licence";
+
 export type RuleBreak =
   | "window_closed"
   | "watched_too_much"
