@@ -178,7 +178,12 @@
   --rnf-unread-badge-bg-color: var(--destructive);
 }
 
-/* The badge count reads white on the destructive badge in both themes. */
+/* The badge count reads white on the destructive badge in both themes.
+   The one exception to "only --rnf-* variables": Knock colours the count
+   with --rnf-color-white and offers no badge text variable, and
+   .cadence-knock maps --rnf-color-white to the popover background. So the
+   override is scoped to Knock's .rnf-unseen-badge class; recheck it when
+   upgrading @knocklabs/react. */
 .cadence-knock .rnf-unseen-badge {
   --rnf-color-white: oklch(1 0 0);
 }
