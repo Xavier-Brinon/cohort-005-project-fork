@@ -18,7 +18,11 @@ import {
   UserRole,
 } from "~/db/schema";
 import { formatPrice } from "~/lib/utils";
-import { excerpt, type NotifyIntent } from "~/lib/notifications.server";
+import {
+  excerpt,
+  type MarkReadIntent,
+  type NotifyIntent,
+} from "~/lib/notifications.server";
 import {
   REFUND_COMPLETION_LIMIT,
   REFUND_WATCH_LIMIT_SECONDS,
@@ -604,7 +608,14 @@ export function listTeamLicences(db: Queryable, buyerId: number, now: Date) {
 
 // ─── Deciding a Refund Request ───
 
-export type DecisionResult = { ok: true; email: Email } | Failure;
+export type DecisionResult =
+  | {
+      ok: true;
+      email: Email;
+      notify: NotifyIntent[];
+      markRead: MarkReadIntent[];
+    }
+  | Failure;
 
 function findOpenRefundRequest(
   tx: Queryable,
@@ -713,10 +724,14 @@ export function approveRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return {
-      ok: true,
-      email: buildDecisionEmail(tx, purchase, RefundStatus.Approved, note),
-    };
+    return decided(
+      tx,
+      refundRequestId,
+      purchase,
+      platformAdminId,
+      RefundStatus.Approved,
+      note
+    );
   });
 }
 
@@ -756,36 +771,87 @@ export function declineRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return {
-      ok: true,
-      email: buildDecisionEmail(
-        tx,
-        found.purchase,
-        RefundStatus.Declined,
-        trimmedNote
-      ),
-    };
+    return decided(
+      tx,
+      refundRequestId,
+      found.purchase,
+      platformAdminId,
+      RefundStatus.Declined,
+      trimmedNote
+    );
   });
 }
 
-/** The email the buyer gets once their Refund Request is decided. */
-function buildDecisionEmail(
+type Decision = RefundStatus.Approved | RefundStatus.Declined;
+
+/**
+ * What a decided Refund Request hands the route: the buyer's email, their
+ * refund-request-decided Notification, and the mark-read intent that clears
+ * every Platform Admin's refund-request-opened Notification for it.
+ */
+function decided(
   db: Queryable,
+  refundRequestId: number,
   purchase: Purchase,
-  decision: RefundStatus.Approved | RefundStatus.Declined,
+  platformAdminId: number,
+  decision: Decision,
   note: string | null
-): Email {
-  const buyer = db
-    .select()
-    .from(users)
-    .where(eq(users.id, purchase.userId))
-    .get();
+): DecisionResult {
+  const buyer = getPerson(db, purchase.userId);
+  const platformAdmin = getPerson(db, platformAdminId);
   const course = db
     .select()
     .from(courses)
     .where(eq(courses.id, purchase.courseId))
     .get();
+  const purchaseKind = kindOf(getSeats(db, purchase.id));
 
+  const notify: NotifyIntent[] =
+    buyer && platformAdmin && course
+      ? [
+          {
+            type: "refund-request-decided",
+            actor: { id: platformAdmin.id, name: platformAdmin.name },
+            recipients: [{ id: buyer.id, name: buyer.name }],
+            data: {
+              decision,
+              courseTitle: course.title,
+              note,
+              purchaseKind,
+              // A Team Admin manages a Team Licence from the team page.
+              url:
+                purchaseKind === "team_licence"
+                  ? "/team"
+                  : `/courses/${course.slug}`,
+            },
+          },
+        ]
+      : [];
+
+  return {
+    ok: true,
+    email: buildDecisionEmail(purchase, buyer, course, decision, note),
+    notify,
+    markRead: [{ type: "refund-request-opened", subjectId: refundRequestId }],
+  };
+}
+
+function getPerson(db: Queryable, userId: number) {
+  return db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+}
+
+/** The email the buyer gets once their Refund Request is decided. */
+function buildDecisionEmail(
+  purchase: Purchase,
+  buyer: { name: string; email: string } | undefined,
+  course: { title: string } | undefined,
+  decision: Decision,
+  note: string | null
+): Email {
   const courseTitle = course?.title ?? "your course";
   const noteLines = note ? ["", note] : [];
 

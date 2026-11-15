@@ -29,6 +29,14 @@ export type NotificationData = {
     reasonExcerpt: string;
     url: string;
   };
+  // One type with two outcomes: the template branches on `decision`.
+  "refund-request-decided": {
+    decision: "approved" | "declined";
+    courseTitle: string;
+    note: string | null;
+    purchaseKind: PurchaseKind;
+    url: string;
+  };
 };
 
 export type NotificationType = keyof NotificationData;
