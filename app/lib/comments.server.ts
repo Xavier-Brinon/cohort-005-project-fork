@@ -7,7 +7,7 @@ import {
   UserRole,
   users,
 } from "~/db/schema";
-import type { Db } from "~/lib/refunds.server";
+import type { Db } from "~/db";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "~/lib/comments";
 import {
   excerpt,
