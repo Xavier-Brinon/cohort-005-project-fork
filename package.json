@@ -18,6 +18,9 @@
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx scripts/seed.ts",
     "db:migrate": "drizzle-kit migrate",
+    "knock:validate": "node --env-file-if-exists=.env node_modules/@knocklabs/cli/bin/run.js workflow validate --all --environment development",
+    "knock:push": "node --env-file-if-exists=.env node_modules/@knocklabs/cli/bin/run.js workflow push --all --environment development --commit",
+    "knock:check": "node --env-file-if-exists=.env scripts/knock-workflows.ts check",
     "loc": "git ls-files | grep -vE '(lock|.db|_snapshot.json)' | xargs wc -l"
   },
   "dependencies": {
@@ -49,6 +52,8 @@
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.14.0",
     "@clack/prompts": "^1.7.0",
+    "@knocklabs/cli": "^1.6.2",
+    "@knocklabs/mgmt": "^0.46.1",
     "@react-router/dev": "8.3.0",
     "@tailwindcss/vite": "^4.1.13",
     "@types/better-sqlite3": "^7.6.13",

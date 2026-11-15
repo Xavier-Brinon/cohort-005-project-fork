@@ -1,0 +1,109 @@
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { findDrift, loadLocalWorkflows } from "./knock-workflows";
+
+function workflowsDir(files: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), "knock-workflows-"));
+  for (const [path, contents] of Object.entries(files)) {
+    mkdirSync(join(dir, path, ".."), { recursive: true });
+    writeFileSync(join(dir, path), contents);
+  }
+  return dir;
+}
+
+describe("loadLocalWorkflows", () => {
+  it("inlines @ file references the way the Knock CLI does", () => {
+    const dir = workflowsDir({
+      "greeting/workflow.json": JSON.stringify({
+        name: "Greeting",
+        steps: [
+          {
+            ref: "in_app_feed_1",
+            type: "channel",
+            template: { "markdown_body@": "in_app_feed_1/markdown_body.md" },
+          },
+        ],
+      }),
+      "greeting/in_app_feed_1/markdown_body.md":
+        "Hello **{{ recipient.name }}**\n",
+    });
+
+    expect(loadLocalWorkflows(dir)).toEqual([
+      {
+        key: "greeting",
+        workflow: {
+          name: "Greeting",
+          steps: [
+            {
+              ref: "in_app_feed_1",
+              type: "channel",
+              template: { markdown_body: "Hello **{{ recipient.name }}**\n" },
+            },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it("rejects a workflow.json without a name or steps", () => {
+    const dir = workflowsDir({ "broken/workflow.json": "{}" });
+    expect(() => loadLocalWorkflows(dir)).toThrow("broken/workflow.json");
+  });
+
+  it("loads every workflow in the repo with its template inlined", () => {
+    const workflows = loadLocalWorkflows(
+      join(import.meta.dirname, "../.knock/workflows")
+    );
+
+    expect(workflows.map(({ key }) => key)).toEqual([
+      "lesson-question-posted",
+      "lesson-reply-posted",
+      "refund-request-decided",
+      "refund-request-opened",
+    ]);
+    expect(JSON.stringify(workflows)).not.toContain("@");
+  });
+});
+
+describe("findDrift", () => {
+  const local = {
+    name: "Greeting",
+    steps: [{ ref: "in_app_feed_1", template: { markdown_body: "Hello\n" } }],
+  };
+
+  it("ignores fields only Knock sets and a trailing newline", () => {
+    const remote = {
+      name: "Greeting",
+      sha: "abc",
+      steps: [
+        {
+          ref: "in_app_feed_1",
+          channel_type: "in_app_feed",
+          template: { markdown_body: "Hello" },
+        },
+      ],
+    };
+    expect(findDrift(local, remote)).toEqual([]);
+  });
+
+  it("reports the path of a field changed in Knock", () => {
+    const remote = {
+      name: "Greeting",
+      steps: [{ ref: "in_app_feed_1", template: { markdown_body: "Hi" } }],
+    };
+    expect(findDrift(local, remote)).toEqual([
+      {
+        path: "steps[0].template.markdown_body",
+        local: "Hello\n",
+        remote: "Hi",
+      },
+    ]);
+  });
+
+  it("reports a step added or removed in Knock", () => {
+    const remote = { name: "Greeting", steps: [] };
+    expect(findDrift(local, remote).map(({ path }) => path)).toEqual(["steps"]);
+  });
+});
