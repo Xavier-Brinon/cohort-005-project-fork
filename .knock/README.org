@@ -12,10 +12,18 @@ trigger =data= each template reads is typed in =app/lib/notifications.server.ts=
 #+begin_example
 knock.json                      # { "knockDir": ".knock" }
 .knock/workflows/
-└── refund-request-opened/
-    ├── workflow.json           # steps, channel, action URL
+├── refund-request-opened/
+│   ├── workflow.json           # steps, channel, action URL
+│   └── in_app_feed_1/
+│       └── markdown_body.md    # the template (Liquid)
+├── refund-request-decided/     # branches on data.decision; note only when set
+│   ├── workflow.json
+│   └── in_app_feed_1/
+│       └── markdown_body.md
+└── lesson-question-posted/
+    ├── workflow.json
     └── in_app_feed_1/
-        └── markdown_body.md    # the template (Liquid)
+        └── markdown_body.md
 #+end_example
 
 * Push to Development

@@ -661,6 +661,167 @@ describe("refund-request-opened Notifications", () => {
     // 28 words fill 139 characters, then an ellipsis makes 140.
     const expected = `${"word ".repeat(28).trimEnd()}…`;
     expect(expected).toHaveLength(140);
-    expect(notifier.sent[0].data.reasonExcerpt).toBe(expected);
+    expect(notifier.sent[0]).toMatchObject({
+      data: { reasonExcerpt: expected },
+    });
+  });
+});
+
+describe("refund-request-decided Notifications", () => {
+  // Decides the way the admin refunds route does: delivers only a decision
+  // that succeeded.
+  async function decideAndDeliver(
+    notifier: FakeNotifier,
+    decision: "approve" | "decline",
+    refundRequestId: number,
+    note: string | null = null,
+    deciderId = platformAdmin.id
+  ) {
+    const result =
+      decision === "approve"
+        ? approveRefundRequest(db, refundRequestId, deciderId, note, NOW)
+        : declineRefundRequest(db, refundRequestId, deciderId, note ?? "", NOW);
+    if (result.ok) await deliver(result, notifier);
+    return result;
+  }
+
+  it.each(["approve", "decline"] as const)(
+    "marks the Refund Request's refund-request-opened Notifications read when admins %s it",
+    async (decision) => {
+      const purchase = buyForSelf(base.user.id);
+      const refundRequestId = raise(purchase.id, base.user.id);
+      const notifier = fakeNotifier();
+
+      await decideAndDeliver(
+        notifier,
+        decision,
+        refundRequestId,
+        "Sorry it did not work out."
+      );
+
+      expect(notifier.marked).toEqual([
+        { type: "refund-request-opened", subjectId: refundRequestId },
+      ]);
+    }
+  );
+
+  it("sends and marks nothing when the decision fails, such as a Refund Request already decided", async () => {
+    const purchase = buyForSelf(base.user.id);
+    const refundRequestId = raise(purchase.id, base.user.id);
+    approveRefundRequest(db, refundRequestId, platformAdmin.id, null, NOW);
+    const notifier = fakeNotifier();
+
+    const second = await decideAndDeliver(
+      notifier,
+      "decline",
+      refundRequestId,
+      "Changed my mind."
+    );
+
+    expect(second.ok).toBe(false);
+    expect(notifier.sent).toEqual([]);
+    expect(notifier.marked).toEqual([]);
+  });
+
+  it("notifies the Student who made an Individual Purchase, with the deciding Platform Admin as actor", async () => {
+    const purchase = buyForSelf(base.user.id);
+    const refundRequestId = raise(purchase.id, base.user.id);
+    const notifier = fakeNotifier();
+
+    await decideAndDeliver(notifier, "approve", refundRequestId);
+
+    expect(notifier.sent).toEqual([
+      {
+        type: "refund-request-decided",
+        actor: { id: platformAdmin.id, name: "Pat Admin" },
+        recipients: [{ id: base.user.id, name: "Test User" }],
+        data: {
+          decision: "approved",
+          courseTitle: "Test Course",
+          note: null,
+          purchaseKind: "individual_purchase",
+          url: "/courses/test-course",
+        },
+      },
+    ]);
+  });
+
+  it("does not notify a Platform Admin who decides a Refund Request on their own Purchase", async () => {
+    const purchase = buyForSelf(platformAdmin.id);
+    const refundRequestId = raise(purchase.id, platformAdmin.id);
+    const notifier = fakeNotifier();
+
+    await decideAndDeliver(notifier, "approve", refundRequestId);
+
+    expect(notifier.sent).toEqual([]);
+    expect(notifier.marked).toEqual([
+      { type: "refund-request-opened", subjectId: refundRequestId },
+    ]);
+  });
+
+  it("notifies the Team Admin of a declined Team Licence, with the note and a link to the team page", async () => {
+    const priya = addLearner("Priya");
+    const { purchase } = buySeats(priya.id, 2);
+    const refundRequestId = raise(purchase.id, priya.id);
+    const notifier = fakeNotifier();
+
+    await decideAndDeliver(
+      notifier,
+      "decline",
+      refundRequestId,
+      "  The team has used most of the course.  "
+    );
+
+    expect(notifier.sent).toMatchObject([
+      {
+        type: "refund-request-decided",
+        recipients: [{ id: priya.id, name: "Priya" }],
+        data: {
+          decision: "declined",
+          courseTitle: "Test Course",
+          note: "The team has used most of the course.",
+          purchaseKind: "team_licence",
+          url: "/team",
+        },
+      },
+    ]);
+  });
+
+  it("notifies the Team Admin of an approved Team Licence with a link to the team page", async () => {
+    const priya = addLearner("Priya");
+    const { purchase } = buySeats(priya.id, 2);
+    const refundRequestId = raise(purchase.id, priya.id);
+    const notifier = fakeNotifier();
+
+    await decideAndDeliver(notifier, "approve", refundRequestId, "Refunded.");
+
+    expect(notifier.sent[0].data).toEqual({
+      decision: "approved",
+      courseTitle: "Test Course",
+      note: "Refunded.",
+      purchaseKind: "team_licence",
+      url: "/team",
+    });
+  });
+
+  it("notifies the Student of a declined Individual Purchase with a link to the course page", async () => {
+    const purchase = buyForSelf(base.user.id);
+    const refundRequestId = raise(purchase.id, base.user.id);
+    const notifier = fakeNotifier();
+
+    await decideAndDeliver(
+      notifier,
+      "decline",
+      refundRequestId,
+      "You finished the course."
+    );
+
+    expect(notifier.sent[0].data).toEqual({
+      decision: "declined",
+      courseTitle: "Test Course",
+      note: "You finished the course.",
+      purchaseKind: "individual_purchase",
+      url: "/courses/test-course",
+    });
   });
 });
