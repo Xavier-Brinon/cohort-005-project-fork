@@ -1,4 +1,4 @@
-FROM node:22-bookworm
+FROM node:26-bookworm
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -28,8 +28,12 @@ USER ${AGENT_UID}:${AGENT_GID}
 # Install Claude Code CLI
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
-# Add Claude to PATH
-ENV PATH="/home/agent/.local/bin:$PATH"
+# Install mise, then aube through it (node comes from the base image)
+RUN curl -fsSL https://mise.run | sh \
+  && /home/agent/.local/bin/mise use -g aube@2.10.0
+
+# Add Claude, mise and its shims to PATH
+ENV PATH="/home/agent/.local/bin:/home/agent/.local/share/mise/shims:$PATH"
 
 WORKDIR /home/agent
 

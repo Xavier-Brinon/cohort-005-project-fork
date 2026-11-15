@@ -16,7 +16,7 @@ const discoveryMocks = vi.hoisted(() => ({
 vi.mock("@clack/prompts", () => promptMocks);
 vi.mock("./model-discovery", () => discoveryMocks);
 
-import { askChoice } from "./config";
+import { askChoice } from "./config.ts";
 
 function customOpenCodeAnswers() {
   promptMocks.select.mockResolvedValueOnce("opencode");

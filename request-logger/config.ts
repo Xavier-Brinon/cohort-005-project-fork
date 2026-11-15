@@ -32,8 +32,8 @@ import {
   WIRE_FORMAT_OPTIONS,
   type AgentChoice,
   type RendererId,
-} from "./agents";
-import { discoverModelIds } from "./model-discovery";
+} from "./agents.ts";
+import { discoverModelIds } from "./model-discovery.ts";
 
 export interface WizardAnswer {
   choice: AgentChoice;

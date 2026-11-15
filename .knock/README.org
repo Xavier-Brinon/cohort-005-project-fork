@@ -31,17 +31,36 @@ knock.json                      # { "knockDir": ".knock" }
 #+end_example
 
 * Push to Development
-Run the CLI from the repository root, so =knock.json= resolves =.knock=. It
-needs a login (=knock login=) or a service token in =KNOCK_SERVICE_TOKEN=.
+The Knock CLI is a dev dependency. Every script below reads
+=KNOCK_SERVICE_TOKEN= from the shell or from =.env= (create the token in the
+Knock dashboard, under Settings, Service tokens).
 
 #+begin_src shell
-aube dlx @knocklabs/cli whoami
-aube dlx @knocklabs/cli workflow validate refund-request-opened
-aube dlx @knocklabs/cli workflow push refund-request-opened --environment development --commit -m "Add refund-request-opened"
+aube run knock:validate                    # Knock validates every workflow, saves nothing
+aube run knock:push -- -m "Add a step"     # push and commit every workflow to Development
 #+end_src
 
-=--all= pushes every workflow at once. =workflow pull <key>= brings a change
-made in the dashboard back into the repo.
+To push a single workflow, run the CLI itself:
+
+#+begin_src shell
+node --env-file-if-exists=.env node_modules/@knocklabs/cli/bin/run.js workflow push refund-request-opened --environment development --commit -m "…"
+#+end_src
+
+=workflow pull <key>= brings a change made in the dashboard back into the repo.
+
+* Check for drift
+=scripts/knock-workflows.ts= uses the Management API (=@knocklabs/mgmt=) to
+check that an environment still holds what the repo says. It validates every
+workflow, then compares each field set in =.knock/workflows= with Knock, and
+lists any workflow Knock holds that the repo does not. Fields only Knock sets
+(=sha=, timestamps, defaults) and trailing whitespace are not drift.
+
+#+begin_src shell
+aube run knock:check                                  # against Development
+aube run knock:check -- --environment production      # before or after a promote
+#+end_src
+
+It exits 1 on any drift, so CI can run it as a gate.
 
 * Promote to Production
 Promotion is a deliberate, separate step taken by a person, never part of a

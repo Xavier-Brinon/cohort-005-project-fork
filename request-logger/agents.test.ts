@@ -11,7 +11,7 @@ import {
   resolveChoice,
   shouldLogRequest,
   type AgentChoice,
-} from "./agents";
+} from "./agents.ts";
 
 const PORT = { port: 8787, platform: "linux" as NodeJS.Platform };
 
