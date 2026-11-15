@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { createTestDb, seedBaseData } from "~/test/setup";
 import * as schema from "~/db/schema";
@@ -14,6 +14,11 @@ import {
   listTeamLicences,
   raiseRefundRequest,
 } from "./refunds.server";
+import {
+  deliver,
+  fakeNotifier,
+  type FakeNotifier,
+} from "./notifications.server";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -500,5 +505,162 @@ describe("listing Refund Requests", () => {
       { seatCount: 2, claimedSeatCount: 1, canRequestRefund: false },
       { seatCount: 2, claimedSeatCount: 0, canRequestRefund: true },
     ]);
+  });
+});
+
+describe("refund-request-opened Notifications", () => {
+  function addPlatformAdmin(name: string) {
+    return db
+      .insert(schema.users)
+      .values({
+        name,
+        email: `${name.toLowerCase().replace(" ", ".")}@example.com`,
+        role: UserRole.Admin,
+      })
+      .returning()
+      .get();
+  }
+
+  it("does not notify a Platform Admin who raises a Refund Request for their own Purchase", async () => {
+    const morgan = addPlatformAdmin("Morgan Admin");
+    const purchase = buyForSelf(platformAdmin.id);
+    const notifier = fakeNotifier();
+
+    const result = raiseRefundRequest(
+      db,
+      purchase.id,
+      platformAdmin.id,
+      "It was not what I expected.",
+      NOW
+    );
+    if (!result.ok) throw new Error(result.error);
+    await deliver(result, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].recipients).toEqual([
+      { id: morgan.id, name: "Morgan Admin" },
+    ]);
+  });
+
+  // Delivers the way the refund route does: only a raise that succeeded.
+  async function raiseAndDeliver(
+    notifier: FakeNotifier,
+    purchaseId: number,
+    buyerId: number,
+    reason = "It was not what I expected."
+  ) {
+    const result = raiseRefundRequest(db, purchaseId, buyerId, reason, NOW);
+    if (result.ok) await deliver(result, notifier);
+    return result;
+  }
+
+  it("sends nothing when the raise fails, such as a second Open Refund Request on the same Purchase", async () => {
+    const purchase = buyForSelf(base.user.id);
+    raise(purchase.id, base.user.id);
+    const notifier = fakeNotifier();
+
+    const second = await raiseAndDeliver(notifier, purchase.id, base.user.id);
+
+    expect(second.ok).toBe(false);
+    expect(notifier.sent).toEqual([]);
+  });
+
+  it("sends nothing when the only Platform Admin raises a Refund Request", async () => {
+    const purchase = buyForSelf(platformAdmin.id);
+    const notifier = fakeNotifier();
+
+    await raiseAndDeliver(notifier, purchase.id, platformAdmin.id);
+
+    expect(notifier.sent).toEqual([]);
+  });
+
+  it("notifies every Platform Admin, with the buyer as actor", async () => {
+    const morgan = addPlatformAdmin("Morgan Admin");
+    const purchase = buyForSelf(base.user.id);
+    const notifier = fakeNotifier();
+
+    await raiseAndDeliver(notifier, purchase.id, base.user.id);
+
+    expect(notifier.sent).toMatchObject([
+      {
+        type: "refund-request-opened",
+        actor: { id: base.user.id, name: "Test User" },
+        recipients: [
+          { id: platformAdmin.id, name: "Pat Admin" },
+          { id: morgan.id, name: "Morgan Admin" },
+        ],
+      },
+    ]);
+  });
+
+  it("tells the Platform Admins who asked, for which course and why, and links to the refunds page", async () => {
+    const purchase = buyForSelf(base.user.id);
+    const notifier = fakeNotifier();
+
+    const result = await raiseAndDeliver(
+      notifier,
+      purchase.id,
+      base.user.id,
+      "The course moved too fast for me."
+    );
+    if (!result.ok) throw new Error(result.error);
+
+    expect(notifier.sent[0].data).toEqual({
+      refundRequestId: result.refundRequestId,
+      buyerName: "Test User",
+      courseTitle: "Test Course",
+      purchaseKind: "individual_purchase",
+      reasonExcerpt: "The course moved too fast for me.",
+      url: "/admin/refunds",
+    });
+  });
+
+  it("names the purchase kind of a Team Licence", async () => {
+    const priya = addLearner("Priya");
+    const { purchase } = buySeats(priya.id, 2);
+    const notifier = fakeNotifier();
+
+    await raiseAndDeliver(notifier, purchase.id, priya.id);
+
+    expect(notifier.sent[0].data).toMatchObject({
+      buyerName: "Priya",
+      purchaseKind: "team_licence",
+    });
+  });
+
+  it("keeps the Refund Request when the Notifier fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const purchase = buyForSelf(base.user.id);
+    const result = raiseRefundRequest(
+      db,
+      purchase.id,
+      base.user.id,
+      "It was not what I expected.",
+      NOW
+    );
+    if (!result.ok) throw new Error(result.error);
+
+    await deliver(result, {
+      notify: () => Promise.reject(new Error("Knock is down")),
+      markRead: () => Promise.reject(new Error("Knock is down")),
+    });
+
+    expect(listRefundRequestsForBuyer(db, base.user.id)).toMatchObject([
+      { id: result.refundRequestId, status: RefundStatus.Open },
+    ]);
+    vi.restoreAllMocks();
+  });
+
+  it("cuts a long reason to a 140-character excerpt", async () => {
+    const purchase = buyForSelf(base.user.id);
+    const notifier = fakeNotifier();
+    const reason = `${"word ".repeat(40)}and the end of my reason.`;
+
+    await raiseAndDeliver(notifier, purchase.id, base.user.id, reason);
+
+    // 28 words fill 139 characters, then an ellipsis makes 140.
+    const expected = `${"word ".repeat(28).trimEnd()}…`;
+    expect(expected).toHaveLength(140);
+    expect(notifier.sent[0].data.reasonExcerpt).toBe(expected);
   });
 });
