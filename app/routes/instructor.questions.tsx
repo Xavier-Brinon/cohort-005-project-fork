@@ -168,24 +168,24 @@ export async function action({ request }: Route.ActionArgs) {
     throw data("Select a user from the DevUI panel.", { status: 401 });
   }
 
-  let reply;
   try {
-    reply = createLessonComment(
+    const reply = createLessonComment(
       db,
       userId,
       question.lessonId,
       question.id,
       parsed.data.body
     );
+    // The Lesson Reply is saved; `deliver` logs a Notification failure and
+    // never throws.
+    await deliver(reply);
+    return { ok: true };
   } catch (error) {
     if (error instanceof Error) {
       return { ok: false, error: error.message };
     }
     throw error;
   }
-
-  await deliver(reply);
-  return { ok: true };
 }
 
 type Question = Awaited<ReturnType<typeof loader>>["questions"][number];
