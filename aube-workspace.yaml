@@ -1,0 +1,7 @@
+# Dependencies whose install scripts may run. Anything not listed installs
+# without its build step; `aube ignored-builds` lists what was skipped.
+allowBuilds:
+  better-sqlite3: true # native bindings; fails at runtime without its build
+  esbuild: true
+  fsevents: true
+  msw: true
