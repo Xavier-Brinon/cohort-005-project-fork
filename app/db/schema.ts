@@ -27,7 +27,8 @@ export const LessonProgressStatus = {
   InProgress: "in_progress",
   Completed: "completed",
 } as const;
-export type LessonProgressStatus = (typeof LessonProgressStatus)[keyof typeof LessonProgressStatus];
+export type LessonProgressStatus =
+  (typeof LessonProgressStatus)[keyof typeof LessonProgressStatus];
 
 export const QuestionType = {
   MultipleChoice: "multiple_choice",
@@ -46,7 +47,8 @@ export const TeamMemberRole = {
   Admin: "admin",
   Member: "member",
 } as const;
-export type TeamMemberRole = (typeof TeamMemberRole)[keyof typeof TeamMemberRole];
+export type TeamMemberRole =
+  (typeof TeamMemberRole)[keyof typeof TeamMemberRole];
 
 // ─── Tables ───
 

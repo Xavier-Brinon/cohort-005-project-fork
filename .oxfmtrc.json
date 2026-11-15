@@ -8,9 +8,5 @@
   "semi": true,
   "arrowParens": "always",
   "sortPackageJson": false,
-  "ignorePatterns": [
-    ".agents/**",
-    "drizzle/**",
-    "aube-lock.yaml"
-  ]
+  "ignorePatterns": [".agents/**", "drizzle/**", "aube-lock.yaml"]
 }
