@@ -29,6 +29,12 @@ export type NotificationData = {
     reasonExcerpt: string;
     url: string;
   };
+  "lesson-reply-posted": {
+    replierName: string;
+    lessonTitle: string;
+    excerpt: string;
+    url: string;
+  };
 };
 
 export type NotificationType = keyof NotificationData;

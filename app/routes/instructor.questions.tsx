@@ -14,6 +14,7 @@ import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { cn, daysSince, formatRelativeTime } from "~/lib/utils";
 import { MAX_COMMENT_LENGTH } from "~/lib/comments";
 import { createLessonComment, findLessonComment } from "~/lib/comments.server";
+import { deliver } from "~/lib/notifications.server";
 import { parseFormData } from "~/lib/validation";
 import { db } from "~/db";
 import {
@@ -167,8 +168,9 @@ export async function action({ request }: Route.ActionArgs) {
     throw data("Select a user from the DevUI panel.", { status: 401 });
   }
 
+  let reply;
   try {
-    createLessonComment(
+    reply = createLessonComment(
       db,
       userId,
       question.lessonId,
@@ -182,6 +184,7 @@ export async function action({ request }: Route.ActionArgs) {
     throw error;
   }
 
+  await deliver(reply);
   return { ok: true };
 }
 
