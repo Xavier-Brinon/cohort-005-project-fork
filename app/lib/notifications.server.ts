@@ -188,22 +188,27 @@ export function outboxNotifier(directory: string): Notifier {
   };
 }
 
+// What the fake records per `notify` call. Looser than `NotifyIntent`:
+// a generic `type` cannot prove which `data` shape goes with it, and tests
+// only compare the recording against literals.
+export type SentNotification = {
+  type: NotificationType;
+} & Notification<NotificationType>;
+
 export type FakeNotifier = Notifier & {
-  sent: NotifyIntent[];
+  sent: SentNotification[];
   marked: MarkReadIntent[];
 };
 
 // Records every call, for tests.
 export function fakeNotifier(): FakeNotifier {
-  const sent: NotifyIntent[] = [];
+  const sent: SentNotification[] = [];
   const marked: MarkReadIntent[] = [];
   return {
     sent,
     marked,
     async notify(type, notification) {
-      // Rebuilding the intent from `type` loses the link between `type` and
-      // `data` that the generic signature guarantees; it holds here.
-      sent.push({ type, ...notification } as NotifyIntent);
+      sent.push({ type, ...notification });
     },
     async markRead(type, subjectId) {
       marked.push({ type, subjectId });
