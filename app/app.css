@@ -163,9 +163,9 @@
   --rnf-notification-feed-popover-bg-color: var(--popover);
   --rnf-notification-feed-popover-border-radius: var(--radius);
   --rnf-notification-feed-popover-shadow-color: oklch(0 0 0 / 20%);
-  --rnf-notification-feed-popover-shadow: drop-shadow(
-    0 5px 15px var(--rnf-notification-feed-popover-shadow-color)
-  );
+  /* The first shadow draws a hairline edge, which the dark theme needs. */
+  --rnf-notification-feed-popover-shadow: drop-shadow(0 0 1px var(--ring))
+    drop-shadow(0 5px 15px var(--rnf-notification-feed-popover-shadow-color));
   --rnf-notification-cell-content-color: var(--popover-foreground);
   --rnf-notification-cell-border-bottom-color: var(--border);
   --rnf-notification-cell-active-bg-color: var(--accent);
