@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     globals: true,
-    exclude: [...configDefaults.exclude],
+    // Agent worktrees hold full copies of the repo, tests included.
+    exclude: [...configDefaults.exclude, ".claude/worktrees/**"],
   },
 });

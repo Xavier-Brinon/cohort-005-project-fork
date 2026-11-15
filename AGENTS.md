@@ -11,7 +11,7 @@ Do these checks in this order before you report a change to `app/` as complete:
 | Symptom                                         | Cause                                                                                                  |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 401 "Select a user from the DevUI panel"        | No user in the session — switch users and country in the floating panel (`app/components/dev-ui.tsx`). |
-| `tsc` reports every `./+types/*` import missing | Typegen has not run. Use `aube run typecheck`, which runs `react-router typegen` first.                 |
+| `tsc` reports every `./+types/*` import missing | Typegen has not run. Use `aube run typecheck`, which runs `react-router typegen` first.                |
 
 ## Agent skills
 
