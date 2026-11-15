@@ -856,13 +856,14 @@ export async function action({ params, request }: Route.ActionArgs) {
       if (!existing || existing.lessonId !== lessonId) {
         throw data("Comment not found", { status: 404 });
       }
-      deleteLessonComment(
+      const deleted = deleteLessonComment(
         db,
         parsed.data.commentId,
         currentUserId,
         access.isStaff,
         new Date()
       );
+      await deliver(deleted);
       return { ok: true };
     } catch (error) {
       // Service validation failures are user-correctable; anything thrown as a

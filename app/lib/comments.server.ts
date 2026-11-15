@@ -9,7 +9,11 @@ import {
 } from "~/db/schema";
 import type { Db } from "~/lib/refunds.server";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "~/lib/comments";
-import { excerpt, type NotifyIntent } from "~/lib/notifications.server";
+import {
+  excerpt,
+  type MarkReadIntent,
+  type NotifyIntent,
+} from "~/lib/notifications.server";
 
 // ─── Lesson Comments ───
 // Creating, editing and soft-deleting Lesson Questions and Lesson Replies.
@@ -76,8 +80,33 @@ export function createLessonComment(
 
   const notify: NotifyIntent[] =
     parentId === null ? lessonQuestionPosted(db, comment) : [];
+  const markRead: MarkReadIntent[] =
+    parentId !== null && isAnswerer(db, authorId, lessonId)
+      ? [{ type: "lesson-question-posted", subjectId: parentId }]
+      : [];
 
-  return { ...comment, notify };
+  return { ...comment, notify, markRead };
+}
+
+// A Lesson Reply answers its Lesson Question when the course's Instructor or
+// a Platform Admin posts it (see `getUnansweredQuestions` in
+// instructor.questions.tsx).
+function isAnswerer(db: Db, userId: number, lessonId: number): boolean {
+  const user = db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.id, userId))
+    .get();
+  if (user?.role === UserRole.Admin) return true;
+
+  const place = db
+    .select({ instructorId: courses.instructorId })
+    .from(lessons)
+    .innerJoin(modules, eq(modules.id, lessons.moduleId))
+    .innerJoin(courses, eq(courses.id, modules.courseId))
+    .where(eq(lessons.id, lessonId))
+    .get();
+  return place?.instructorId === userId;
 }
 
 type LessonComment = typeof comments.$inferSelect;
@@ -151,15 +180,24 @@ export function deleteLessonComment(
     throw new Error("You can only delete your own comments");
   }
   if (existing.deletedAt !== null) {
-    return existing;
+    return { ...existing, markRead: [] };
   }
 
-  return db
+  const deleted = db
     .update(comments)
     .set({ deletedAt: now.toISOString() })
     .where(eq(comments.id, commentId))
     .returning()
     .get();
+
+  // A deleted Lesson Question needs no answer. Deleting a Lesson Reply marks
+  // nothing, and never marks a Notification unread.
+  const markRead: MarkReadIntent[] =
+    deleted.parentId === null
+      ? [{ type: "lesson-question-posted", subjectId: deleted.id }]
+      : [];
+
+  return { ...deleted, markRead };
 }
 
 // Only the author may edit, and only while the Lesson Comment is not deleted.
