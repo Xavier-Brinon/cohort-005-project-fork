@@ -119,3 +119,11 @@ _Avoid_: Question (on its own)
 **Notification**:
 A message Cadence shows a person inside the app about something that happened that concerns them. It stays until they deal with it.
 _Avoid_: Alert, Toast (a toast is brief feedback on the person's own action, not a Notification)
+
+**Seen Notification**:
+A Notification the person has had in front of them, by opening their Notifications. Seen ones no longer count towards the number on the bell.
+_Avoid_: Viewed, Opened
+
+**Read Notification**:
+A Notification the person has clicked, marked read themselves, or whose subject someone has already dealt with (its Refund Request decided, its Lesson Question answered or deleted). Being seen does not make it read.
+_Avoid_: Dismissed, Cleared, Done
