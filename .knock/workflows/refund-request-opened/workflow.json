@@ -1,0 +1,16 @@
+{
+  "name": "Refund request opened",
+  "description": "A buyer raised a Refund Request. Sent to every Platform Admin.",
+  "categories": ["refunds"],
+  "steps": [
+    {
+      "ref": "in_app_feed_1",
+      "type": "channel",
+      "channel_key": "cadence-in-app",
+      "template": {
+        "action_url": "{{ data.url }}",
+        "markdown_body@": "in_app_feed_1/markdown_body.md"
+      }
+    }
+  ]
+}
