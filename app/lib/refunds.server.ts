@@ -15,8 +15,10 @@ import {
   videoWatchEvents,
   LessonProgressStatus,
   RefundStatus,
+  UserRole,
 } from "~/db/schema";
 import { formatPrice } from "~/lib/utils";
+import { excerpt, type NotifyIntent } from "~/lib/notifications.server";
 import {
   REFUND_COMPLETION_LIMIT,
   REFUND_WATCH_LIMIT_SECONDS,
@@ -351,8 +353,25 @@ export function getRefundOffer(
 export type Email = { to: string; subject: string; body: string };
 
 export type RaiseResult =
-  | { ok: true; refundRequestId: number; kind: PurchaseKind; email: Email }
+  | {
+      ok: true;
+      refundRequestId: number;
+      kind: PurchaseKind;
+      email: Email;
+      notify: NotifyIntent[];
+    }
   | Failure;
+
+// Every Platform Admin, queried when the Refund Request is raised so a new
+// Platform Admin gets the next one.
+function listPlatformAdmins(db: Queryable) {
+  return db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(eq(users.role, UserRole.Admin))
+    .orderBy(asc(users.id))
+    .all();
+}
 
 export function raiseRefundRequest(
   db: Db,
@@ -387,10 +406,27 @@ export function raiseRefundRequest(
     .returning()
     .get();
 
+  const kind = kindOf(getSeats(db, purchase.id));
+
   return {
     ok: true,
     refundRequestId: refundRequest.id,
-    kind: kindOf(getSeats(db, purchase.id)),
+    kind,
+    notify: [
+      {
+        type: "refund-request-opened",
+        actor: { id: buyer.id, name: buyer.name },
+        recipients: listPlatformAdmins(db),
+        data: {
+          refundRequestId: refundRequest.id,
+          buyerName: buyer.name,
+          courseTitle: course.title,
+          purchaseKind: kind,
+          reasonExcerpt: excerpt(reason),
+          url: "/admin/refunds",
+        },
+      },
+    ],
     email: {
       to: buyer.email,
       subject: `Refund requested — ${course.title}`,
