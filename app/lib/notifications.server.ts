@@ -29,6 +29,22 @@ export type NotificationData = {
     reasonExcerpt: string;
     url: string;
   };
+  // One type with two outcomes: the template branches on `decision`.
+  "refund-request-decided": {
+    decision: "approved" | "declined";
+    courseTitle: string;
+    note: string | null;
+    purchaseKind: PurchaseKind;
+    url: string;
+  };
+  "lesson-question-posted": {
+    lessonQuestionId: number;
+    authorName: string;
+    courseTitle: string;
+    lessonTitle: string;
+    excerpt: string;
+    url: string;
+  };
   "lesson-reply-posted": {
     replierName: string;
     lessonTitle: string;
@@ -43,6 +59,7 @@ export type NotificationType = keyof NotificationData;
 // find every Notification about one subject once it is dealt with elsewhere.
 const SUBJECT_KEYS = {
   "refund-request-opened": "refundRequestId",
+  "lesson-question-posted": "lessonQuestionId",
 } as const satisfies {
   [T in NotificationType]?: keyof NotificationData[T];
 };

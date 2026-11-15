@@ -1,5 +1,12 @@
 import { eq } from "drizzle-orm";
-import { comments, courses, lessons, modules, users } from "~/db/schema";
+import {
+  comments,
+  courses,
+  lessons,
+  modules,
+  UserRole,
+  users,
+} from "~/db/schema";
 import type { Db } from "~/lib/refunds.server";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "~/lib/comments";
 import {
@@ -77,7 +84,7 @@ export function createLessonComment(
   // Notification intents for `deliver`, to hand over after the write.
   const notify: NotifyIntent[] = parent
     ? lessonReplyPosted(db, comment, parent)
-    : [];
+    : lessonQuestionPosted(db, comment);
 
   return { ...comment, notify };
 }
@@ -124,6 +131,58 @@ function findPerson(db: Db, userId: number) {
     .from(users)
     .where(eq(users.id, userId))
     .get();
+}
+
+// The course's Instructor hears of a Lesson Question only when it enters
+// their unanswered-questions queue: not when they or a Platform Admin
+// posted it (see `getUnansweredQuestions` in instructor.questions.tsx).
+function lessonQuestionPosted(
+  db: Db,
+  question: LessonComment
+): NotifyIntent[] {
+  const author = db
+    .select({ id: users.id, name: users.name, role: users.role })
+    .from(users)
+    .where(eq(users.id, question.userId))
+    .get();
+  const place = db
+    .select({
+      lessonTitle: lessons.title,
+      courseTitle: courses.title,
+      instructorId: courses.instructorId,
+    })
+    .from(lessons)
+    .innerJoin(modules, eq(modules.id, lessons.moduleId))
+    .innerJoin(courses, eq(courses.id, modules.courseId))
+    .where(eq(lessons.id, question.lessonId))
+    .get();
+  if (!author || !place) return [];
+  if (author.role === UserRole.Admin || author.id === place.instructorId) {
+    return [];
+  }
+
+  const instructor = db
+    .select({ id: users.id, name: users.name })
+    .from(users)
+    .where(eq(users.id, place.instructorId))
+    .get();
+  if (!instructor) return [];
+
+  return [
+    {
+      type: "lesson-question-posted",
+      actor: { id: author.id, name: author.name },
+      recipients: [instructor],
+      data: {
+        lessonQuestionId: question.id,
+        authorName: author.name,
+        courseTitle: place.courseTitle,
+        lessonTitle: place.lessonTitle,
+        excerpt: excerpt(question.body),
+        url: "/instructor/questions",
+      },
+    },
+  ];
 }
 
 // Only the author or staff (Platform Admin or the course's Instructor) may

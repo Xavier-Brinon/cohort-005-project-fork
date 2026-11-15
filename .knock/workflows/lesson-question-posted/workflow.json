@@ -1,0 +1,16 @@
+{
+  "name": "Lesson question posted",
+  "description": "A Lesson Question entered the course Instructor's unanswered-questions queue. Sent to that Instructor.",
+  "categories": ["lesson-comments"],
+  "steps": [
+    {
+      "ref": "in_app_feed_1",
+      "type": "channel",
+      "channel_key": "cadence-in-app",
+      "template": {
+        "action_url": "{{ data.url }}",
+        "markdown_body@": "in_app_feed_1/markdown_body.md"
+      }
+    }
+  ]
+}
