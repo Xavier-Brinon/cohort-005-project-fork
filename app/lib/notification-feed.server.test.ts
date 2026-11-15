@@ -37,8 +37,9 @@ describe("notificationFeedProps", () => {
       { id: 3, name: "Pat Admin" },
       config
     );
+    if (!props) throw new Error("Expected feed props");
 
-    expect(Object.keys(props!).sort()).toEqual([
+    expect(Object.keys(props).sort()).toEqual([
       "apiKey",
       "feedChannelId",
       "userId",
@@ -53,12 +54,14 @@ describe("notificationFeedProps", () => {
       config
     );
 
+    if (!props) throw new Error("Expected feed props");
+
     expect(props).toMatchObject({
       apiKey: "pk_test_public",
       feedChannelId: "feed-channel-id",
       userId: "3",
     });
-    const [header, payload, signature] = props!.userToken.split(".");
+    const [header, payload, signature] = props.userToken.split(".");
     expect(decode(header)).toMatchObject({ alg: "RS256" });
     expect(decode(payload)).toMatchObject({ sub: "3" });
     const signed = verify(
