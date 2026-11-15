@@ -292,20 +292,20 @@ describe("editLessonComment", () => {
   });
 });
 
+function addPlatformAdmin() {
+  return db
+    .insert(schema.users)
+    .values({
+      name: "Pat Admin",
+      email: "pat@example.com",
+      role: schema.UserRole.Admin,
+    })
+    .returning()
+    .get();
+}
+
 describe("lesson-question-posted Notifications", () => {
   const NOW = new Date("2026-10-06T12:00:00.000Z");
-
-  function addPlatformAdmin() {
-    return db
-      .insert(schema.users)
-      .values({
-        name: "Pat Admin",
-        email: "pat@example.com",
-        role: schema.UserRole.Admin,
-      })
-      .returning()
-      .get();
-  }
 
   it("notifies nobody when the Instructor posts on their own lesson", async () => {
     const notifier = fakeNotifier();
@@ -379,5 +379,84 @@ describe("lesson-question-posted Notifications", () => {
 
     expect(edited).not.toHaveProperty("notify");
     expect(deleted).not.toHaveProperty("notify");
+  });
+});
+
+describe("marking a lesson-question-posted Notification read", () => {
+  const NOW = new Date("2026-10-06T12:00:00.000Z");
+
+  function postQuestion() {
+    return createLessonComment(db, base.user.id, lessonId, null, "Why?");
+  }
+
+  it("marks it read when the course's Instructor answers the Lesson Question", async () => {
+    const question = postQuestion();
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(
+        db,
+        base.instructor.id,
+        lessonId,
+        question.id,
+        "Because."
+      ),
+      notifier
+    );
+    expect(notifier.marked).toEqual([
+      { type: "lesson-question-posted", subjectId: question.id },
+    ]);
+  });
+
+  it("marks it read when a Platform Admin answers the Lesson Question", async () => {
+    const question = postQuestion();
+    const admin = addPlatformAdmin();
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(db, admin.id, lessonId, question.id, "Because."),
+      notifier
+    );
+    expect(notifier.marked).toEqual([
+      { type: "lesson-question-posted", subjectId: question.id },
+    ]);
+  });
+
+  it("marks it read when the Lesson Question is deleted", async () => {
+    const question = postQuestion();
+    const notifier = fakeNotifier();
+    await deliver(
+      deleteLessonComment(db, question.id, base.user.id, false, NOW),
+      notifier
+    );
+    expect(notifier.marked).toEqual([
+      { type: "lesson-question-posted", subjectId: question.id },
+    ]);
+  });
+
+  it("marks nothing when a Student replies to the Lesson Question", async () => {
+    const question = postQuestion();
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(db, base.user.id, lessonId, question.id, "Anyone?"),
+      notifier
+    );
+    expect(notifier.marked).toEqual([]);
+  });
+
+  it("marks nothing when the answering Lesson Reply is deleted", async () => {
+    const question = postQuestion();
+    const answer = createLessonComment(
+      db,
+      base.instructor.id,
+      lessonId,
+      question.id,
+      "Because."
+    );
+    const notifier = fakeNotifier();
+    await deliver(
+      deleteLessonComment(db, answer.id, base.instructor.id, true, NOW),
+      notifier
+    );
+    expect(notifier.marked).toEqual([]);
+    expect(notifier.sent).toEqual([]);
   });
 });
