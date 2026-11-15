@@ -720,14 +720,10 @@ export function approveRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return decided(
-      tx,
-      refundRequestId,
-      purchase,
-      platformAdminId,
-      RefundStatus.Approved,
-      note
-    );
+    return decisionResult(tx, refundRequestId, purchase, platformAdminId, {
+      status: RefundStatus.Approved,
+      note,
+    });
   });
 }
 
@@ -767,31 +763,33 @@ export function declineRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return decided(
+    return decisionResult(
       tx,
       refundRequestId,
       found.purchase,
       platformAdminId,
-      RefundStatus.Declined,
-      trimmedNote
+      { status: RefundStatus.Declined, note: trimmedNote }
     );
   });
 }
 
-type Decision = RefundStatus.Approved | RefundStatus.Declined;
+// What a Platform Admin decided, and the note they wrote the buyer.
+type Decision = {
+  status: RefundStatus.Approved | RefundStatus.Declined;
+  note: string | null;
+};
 
 /**
  * What a decided Refund Request hands the route: the buyer's email, their
  * refund-request-decided Notification, and the mark-read intent that clears
  * every Platform Admin's refund-request-opened Notification for it.
  */
-function decided(
+function decisionResult(
   db: Queryable,
   refundRequestId: number,
   purchase: Purchase,
   platformAdminId: number,
-  decision: Decision,
-  note: string | null
+  decision: Decision
 ): DecisionResult {
   const buyer = findPerson(db, purchase.userId);
   const platformAdmin = findPerson(db, platformAdminId);
@@ -810,9 +808,9 @@ function decided(
             actor: toPerson(platformAdmin),
             recipients: [toPerson(buyer)],
             data: {
-              decision,
+              decision: decision.status,
               courseTitle: course.title,
-              note,
+              note: decision.note,
               purchaseKind,
               // A Team Admin manages a Team Licence from the team page.
               url:
@@ -826,7 +824,7 @@ function decided(
 
   return {
     ok: true,
-    email: buildDecisionEmail(purchase, buyer, course, decision, note),
+    email: buildDecisionEmail(purchase, buyer, course, decision),
     notify,
     markRead: [{ type: "refund-request-opened", subjectId: refundRequestId }],
   };
@@ -837,14 +835,13 @@ function buildDecisionEmail(
   purchase: Purchase,
   buyer: { name: string; email: string } | undefined,
   course: { title: string } | undefined,
-  decision: Decision,
-  note: string | null
+  { status, note }: Decision
 ): Email {
   const courseTitle = course?.title ?? "your course";
   const noteLines = note ? ["", note] : [];
 
   const middle =
-    decision === RefundStatus.Approved
+    status === RefundStatus.Approved
       ? [
           `We have approved your refund request for "${courseTitle}".`,
           `${formatPrice(purchase.amountPaid)}, the full amount you paid, is on its way back to you.`,
@@ -859,7 +856,7 @@ function buildDecisionEmail(
 
   return {
     to: buyer?.email ?? "",
-    subject: `Refund ${decision} — ${courseTitle}`,
+    subject: `Refund ${status} — ${courseTitle}`,
     body: [
       `Hi ${buyer?.name ?? "there"},`,
       "",
