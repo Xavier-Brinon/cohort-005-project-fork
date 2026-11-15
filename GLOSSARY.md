@@ -1,36 +1,129 @@
 # Cadence
 
-Cadence sells video courses to learners. This glossary covers the language around getting money back after a purchase.
+Cadence sells video courses to students. This glossary covers the language around buying, taking and refunding courses.
 
 ## Language
+
+### People
+
+**Student**:
+Someone who takes courses on Cadence.
+_Avoid_: Learner, User
+
+**Instructor**:
+A person who builds and owns courses, and sees the Students enrolled on them.
+_Avoid_: Teacher, Author, Creator
+
+**Platform Admin**:
+A member of Cadence staff who runs the platform. Only a Platform Admin decides Refund Requests.
+_Avoid_: Admin (on its own), the team, Staff
+
+**Team Admin**:
+A Student who buys and manages a Team Licence. A Team Admin has no say over Refund Requests.
+_Avoid_: Admin (on its own)
+
+### Enrollment
+
+**Enrollment**:
+A Student's place on a course, which lets them take it. A Student has at most one Enrollment per course, whether it came from an Individual Purchase or a Claimed Seat.
+_Avoid_: Place on a course, Access
+
+**Lapsed**:
+A Student who has lost their Enrollment on a course but still has progress on it.
+
+**Watched**:
+Seconds of video a Student has actually played in a course: the furthest point reached in each lesson, added up. Not lessons opened.
+_Avoid_: Viewed, Progress
+
+### Purchases
+
+**Purchase**:
+A single payment for a course. It is either an Individual Purchase or a Team Licence.
+_Avoid_: Order, Transaction
+
+**Individual Purchase**:
+A Purchase a Student makes for themselves. It gives the buyer an Enrollment.
+
+**Team Licence**:
+A Purchase a Team Admin makes for others. It grants Seats, not an Enrollment; the buyer can't take the course through it.
+_Avoid_: Team purchase, Bulk purchase
+
+**Seat**:
+One place on a Team Licence that a Student can claim to get an Enrollment.
+_Avoid_: Coupon, Code, Voucher
+
+**Unclaimed Seat**:
+A Seat no Student has claimed yet.
+
+**Claimed Seat**:
+A Seat a Student has claimed. It belongs to that Student, so a Team Licence with any Claimed Seat can't be refunded.
 
 ### Refunds
 
 **Refund Request**:
-A learner's ask, with their reason, to get back what they paid for a purchase. The team approves or declines it. One purchase can have several Refund Requests over time, but only one can be undecided at once.
+The buyer's ask, with their reason, to get back what they paid for one specific Purchase. A Platform Admin approves or declines it. One Purchase can have several Refund Requests over time, but only one can be undecided at once.
 _Avoid_: Refund (for the ask itself), Cancellation, Reversal, Chargeback
 
 **Open Refund Request**:
-A Refund Request the team hasn't decided yet.
+A Refund Request no Platform Admin has decided yet. The buyer keeps their Enrollment while it is open, and a Team Licence's Unclaimed Seats can't be claimed.
 _Avoid_: Pending, Requested, Awaiting review
 
 **Approved Refund Request**:
-A Refund Request the team has accepted. Approving it is what leads to a Refund.
+A Refund Request a Platform Admin has accepted. Approving it ends what the Purchase granted (the buyer's Enrollment for an Individual Purchase; its Unclaimed Seats, which can then never be claimed, for a Team Licence) and leads to a Refund.
 
 **Declined Refund Request**:
-A Refund Request the team has turned down. It has no Refund, and the learner may raise a new Refund Request.
+A Refund Request a Platform Admin has turned down. Nothing the Purchase granted is lost, it has no Refund, and the buyer may raise a new Refund Request.
 
 **Refund**:
-The money returned to a learner after their Refund Request is approved. It is always the full amount they paid. A declined Refund Request has no Refund.
+The money returned to the buyer after their Refund Request is approved. It is always the full amount they paid. A declined Refund Request has no Refund.
 _Avoid_: Reversal, Chargeback, Cancellation
 
 **Pending Refund**:
-A Refund the team has approved where the money hasn't been confirmed as sent yet.
+A Refund whose Refund Request has been approved, where the money hasn't been confirmed as sent yet.
 _Avoid_: Pending (for a Refund Request awaiting review)
 
 **Issued Refund**:
-A Refund where the money has been confirmed as sent back to the learner.
+A Refund where the money has been confirmed as sent back to the buyer.
 _Avoid_: Completed, Paid out
 
 **Failed Refund**:
 A Refund where the money couldn't be sent. The Refund Request stays approved, because the decision hasn't changed.
+
+**Watch Limit**:
+The amount of Watched time on a course past which a Student can no longer get a Refund, because they've had the course.
+_Avoid_: Watch cap, Viewing threshold
+
+### Lessons
+
+**Lesson Comment**:
+A message someone posts under a lesson, visible to everyone on that lesson. It is either a Lesson Question or a Lesson Reply; there is no third kind.
+_Avoid_: Comment (on its own), Post, Message
+
+**Lesson Question**:
+A Lesson Comment that starts a thread under a lesson. Every thread opener is one, whatever it says. It waits for the Instructor until it is answered.
+_Avoid_: Question (on its own), Thread, Top-level comment
+
+**Lesson Reply**:
+A Lesson Comment posted under a Lesson Question. Replies go one level deep: nobody replies to a Lesson Reply.
+_Avoid_: Answer, Response, Child comment
+
+**Answered Lesson Question**:
+A Lesson Question with a Lesson Reply, not deleted, from the course's Instructor or a Platform Admin. A Student's Lesson Reply does not answer it.
+
+**Quiz Question**:
+One question in a lesson's Quiz.
+_Avoid_: Question (on its own)
+
+### Notifications
+
+**Notification**:
+A message Cadence shows a person inside the app about something that happened that concerns them. It stays until they deal with it.
+_Avoid_: Alert, Toast (a toast is brief feedback on the person's own action, not a Notification)
+
+**Seen Notification**:
+A Notification the person has had in front of them, by opening their Notifications. Seen ones no longer count towards the number on the bell.
+_Avoid_: Viewed, Opened
+
+**Read Notification**:
+A Notification the person has clicked, marked read themselves, or whose subject someone has already dealt with (its Refund Request decided, its Lesson Question answered or deleted). Being seen does not make it read.
+_Avoid_: Dismissed, Cleared, Done

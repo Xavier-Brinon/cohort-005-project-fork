@@ -1,0 +1,202 @@
+#+title: Grill: In-app notifications for Cadence
+#+todo: TODO DEFER | DONE
+#+options: ^:{}
+#+startup: indent
+
+Context found in the repo: Cadence uses =sonner= toasts for ephemeral action
+feedback, but has no persistent notifications, no notification service, and no
+notifications table. Events that could notify already exist: Refund Request
+decisions, Refund issued/failed, comment replies, Instructor questions, Seat
+claims on a Team Licence.
+
+* Round 1
+** DONE Q1 What is the destination of this map?
+Wayfinding needs one end state. Options:
+- (a) A *spec* (PRD as a GitHub issue) that an implementer can pick up: chosen
+  service, first notification types, in-app UI, data model.
+- (b) Just a *decision* on which 3rd-party service to adopt, specs later.
+- (c) The feature *built* inside the map.
+
+*** Recommendation
+(a) A PRD issue ready to hand off to implementation. Building it stays out of
+the map.
+
+*** Answer
+Agreed
+
+** DONE Q2 Is "in-app" the only channel?
+"In-app notification" means a message the Student/Instructor sees inside Cadence
+(bell + inbox/feed). Some 3rd-party services (Knock, Novu, Courier, MagicBell)
+also fan out to email, push, SMS. Should the spec cover only the in-app channel,
+or in-app plus email?
+
+*** Recommendation
+In-app only for this spec. Pick a service that /could/ add email later, but rule
+other channels out of scope.
+
+*** Answer
+Agreed
+
+** DONE Q3 Who receives notifications?
+Cadence has Students, Instructors, Team Admins, Platform Admins. Which roles are
+in scope for the first spec?
+
+*** Recommendation
+All four roles can be recipients; the actual list is decided by which
+notification types are chosen (a later ticket). Don't restrict up front.
+
+*** Answer
+Agreed
+
+** DONE Q4 Why a real 3rd-party service rather than a home-grown table?
+A =notifications= table + a bell component is a small build. Using a service
+(Knock, Novu, MagicBell, Courier, SuprSend...) brings a hosted inbox UI,
+preferences, real-time delivery, multi-channel later. What's the motivation:
+learning to integrate a real vendor, or a product need (real-time, preferences,
+future channels)?
+
+*** Recommendation
+Treat "real 3rd-party service" as a hard constraint (learning goal + future
+channels). The research ticket compares vendors against Cadence's stack: React
+Router 7, SQLite/Drizzle, dev-only fake auth via the DevUI panel.
+
+*** Answer
+consider the app as live and in production. We need a real service. A QA mode
+will be very nice to have
+
+** DONE Q5 Constraints on the vendor
+Any hard limits? E.g. must have a free tier usable in dev, must have a React
+SDK/prebuilt inbox component, must be open source / self-hostable, EU data
+residency.
+
+*** Recommendation
+Hard: free tier with no credit card, React SDK with a prebuilt inbox component
+we can restyle, works with our fake dev users (user ids are integers we push to
+the vendor). Nice-to-have: open source/self-hostable.
+
+*** Answer
+Agreed
+
+** DONE Q6 Real-time or on page load?
+Should a new notification appear live (websocket/polling from the vendor SDK) or
+is "visible next time a page loads" enough?
+
+*** Recommendation
+Real-time if the chosen vendor gives it for free via its SDK; not a hard
+requirement.
+
+*** Answer
+make it a hard requirements. If there are no vendors that can do it, then we'll
+revisit
+
+** DONE Q7 Glossary term
+The glossary has no term yet. Proposed: *Notification*: a message Cadence shows
+a person inside the app about something that happened that concerns them.
+/Avoid/: Alert, Toast (toasts are ephemeral action feedback, not Notifications).
+Accept?
+
+*** Recommendation
+Yes, add it to =GLOSSARY.md= now.
+
+*** Answer
+Agreed file:../GLOSSARY.md
+
+* Round 2
+** DONE Q8 What does "QA mode" mean?
+You said a QA mode would be nice to have. Candidates:
+- (a) A separate vendor environment (dev/staging vs production) picked by env
+  var, so testing never reaches real users' inboxes.
+- (b) A DevUI panel action "send me a test Notification of type X", so QA can
+  see every type without staging the real event (e.g. approving a refund).
+- (c) Both.
+
+*** Recommendation
+(c). (a) is close to free with most vendors; (b) is the part that makes QA
+pleasant. Keep it nice-to-have: a ticket in the map, not a gate on the
+destination.
+
+*** Answer
+Agreed
+
+** DONE Q9 Production-grade identity with the vendor
+The app is treated as live, so a Student must not be able to read another
+person's inbox by changing a user id in the browser. Most vendors offer a
+server-signed user token (HMAC or JWT) for their inbox SDK. Make "inbox access
+is authenticated by a token Cadence signs on the server" a hard requirement for
+the vendor?
+
+*** Recommendation
+Yes, hard requirement, added to the vendor research criteria.
+
+*** Answer
+Agreed, but we could revisit if necessary
+
+** DONE Q10 Notifications must never break the action that caused them
+If the vendor is down or slow when a Platform Admin approves a Refund Request,
+the approval must still succeed and the Notification is best-effort (logged,
+maybe retried). Accept as a standing rule of the spec?
+
+*** Recommendation
+Yes. Notifying runs after the domain write commits, never inside its
+transaction, and its failure is logged, not shown to the person acting.
+
+*** Answer
+Agreed
+
+** DONE Q11 Who holds the Notifications: vendor or Cadence?
+- (a) The vendor is the store: Cadence only triggers, the vendor keeps the feed
+  and read/unread state.
+- (b) Cadence also writes a =notifications= row (audit / portability), and the
+  vendor delivers.
+
+*** Recommendation
+(a) for this spec, unless vendor research shows lock-in is severe. Kept as its
+own grilling ticket blocked on the vendor research, so the decision is made
+knowing the vendor.
+
+*** Answer
+Agreed
+
+** DONE Q12 Proposed order for the map
+Tickets I plan to create (the rest stays fog):
+1. Research: compare notification vendors against our criteria (real-time,
+   signed user tokens, React inbox component we can restyle, free tier without a
+   card, React Router 7 SSR compatibility, separate environments).
+2. Grilling: pick the first Notification types (which events, which recipients).
+   Can start now, in parallel with 1.
+3. Grilling: choose the vendor (blocked by 1).
+4. Task: sign up for the chosen vendor and get dev keys (blocked by 3).
+5. Prototype: how the Notifications look in the app: bell placement, inbox
+   panel, empty state, styling against our UI (blocked by 2 and 4).
+6. Grilling: data ownership and trigger points, i.e. Q11 (blocked by 3).
+Fog: QA mode (Q8), preferences / muting, retention and archiving, read/unread
+behaviour. Out of scope: email, push and SMS channels; building the feature.
+Accept this shape?
+
+*** Recommendation
+Yes.
+
+*** Answer
+Yes, let's go
+
+* Summary
+- Q1 :: Destination is a PRD issue ready to hand off; building is out of the
+  map.
+- Q2 :: In-app channel only; vendor should be able to add email later.
+- Q3 :: Any role can receive; the list follows from the chosen Notification
+  types.
+- Q4 :: Cadence is treated as live in production: a real 3rd-party service; QA
+  mode nice to have.
+- Q5 :: Vendor: free tier without card, React SDK with restylable inbox; open
+  source is a plus.
+- Q6 :: Real-time delivery is a hard requirement (revisit only if no vendor
+  offers it).
+- Q7 :: *Notification* added to the glossary.
+- Q8 :: QA mode = separate vendor environment plus a DevUI "send test
+  Notification" action.
+- Q9 :: Inbox access authenticated by a server-signed user token (revisitable).
+- Q10 :: Notifying runs after the domain write commits; failure is logged, never
+  breaks the action.
+- Q11 :: Vendor as the store by default; confirmed in its own ticket after
+  vendor choice.
+- Q12 :: Map shape accepted.

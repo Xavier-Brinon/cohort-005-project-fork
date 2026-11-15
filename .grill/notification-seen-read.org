@@ -1,0 +1,249 @@
+#+title: Grill: What marks a Notification seen or read?
+#+todo: TODO DEFER | DONE
+#+options: ^:{}
+#+startup: indent
+
+Ticket: [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/10][What marks a Notification seen or read?]]
+(map: [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/2][Map: In-app Notifications for Cadence]]).
+
+Already settled: a click navigates to the =url= Cadence builds; Knock alone
+holds read state.
+
+* Facts
+From =@knocklabs/react= 0.15.1 in =node_modules=, and the prototype branch:
+- Knock keeps separate states per message: /seen/, /read/, /interacted/,
+  /archived/.
+- ~NotificationFeedPopover~ default ~onOpen~: if ~unseen_count > 0~,
+  ~markAllAsSeen()~.
+- Clicking a cell calls ~markAsInteracted~ (type ~cell_click~), which sets both
+  ~interacted_at~ and ~read_at~, then follows the action URL.
+- ~NotificationIconButton~ badge counts /unseen/ by default (~badgeCountType~),
+  so the badge empties once the popover opens; unread items still show their
+  unread dot.
+- The feed header ships a "Mark all as read" button (~markAllAsRead()~) and an
+  All / Unread / Read filter.
+- Each cell ships a hover archive button (~markAsArchived~).
+- The prototype (=prototype/notification-inbox=, variant A) uses every default
+  untouched.
+- Glossary: an /Open Refund Request/ is one no Platform Admin has decided yet;
+  an /Answered Lesson Question/ has a non-deleted Lesson Reply from the course's
+  Instructor or a Platform Admin.
+- Current trigger =data= has no Refund Request id or Lesson Question id (see
+  =.grill/notification-triggers.org=).
+
+* Round 1
+** DONE Q1 Seen when the popover opens?
+Keep Knock's default: opening the popover marks every Notification in it seen.
+The alternative is marking each one seen only when it scrolls into view, which
+is custom code for little gain at Cadence's volume.
+
+*** Recommendation
+Yes, keep the default: opening the popover marks all seen.
+
+*** Answer
+Agreed
+
+** DONE Q2 Badge counts unseen, not unread?
+The bell badge can count /unseen/ (Knock default: "new since you last looked",
+empties when the popover opens) or /unread/ (stays until each item is clicked or
+marked read, a to-do counter).
+
+*** Recommendation
+Yes, unseen. Unread items keep their dot inside the popover, so nothing gets
+lost, and the badge does not nag about things the person has already looked at.
+
+*** Answer
+OK
+
+** DONE Q3 Read on click only?
+Keep Knock's default: a Notification becomes read when it is clicked (Knock
+records it as interacted, which also sets read). Seeing it in the popover does
+not make it read. Marking a single item unread again is not offered (Knock's
+prebuilt cell has no control for it).
+
+*** Recommendation
+Yes: read on click only, no per-item "mark unread".
+
+*** Answer
+OK
+
+** DONE Q4 Keep "Mark all as read"?
+The prebuilt feed header has a "Mark all as read" button and an All / Unread /
+Read filter. Keep both as shipped.
+
+*** Recommendation
+Yes, keep both. They cost nothing and cover the Platform Admin who returns to a
+pile of Open Refund Request Notifications.
+
+*** Answer
+OK
+
+** DONE Q5 Leave the archive button to the retention fog?
+Each prebuilt cell has a hover archive button. Whether people can archive or
+delete Notifications belongs to the map's "Retention and archiving" fog, not
+this ticket. Until that is decided, the PRD leaves the button as Knock ships it.
+
+*** Recommendation
+Yes: this ticket does not decide archiving; it stays with the retention fog.
+
+*** Answer
+yes
+
+** DONE Q6 Mark read automatically when the subject is dealt with elsewhere?
+Two Notification types can go stale for reasons the recipient did not cause:
+- /new Open Refund Request/ goes to every Platform Admin. When one admin decides
+  it, the others still see an unread Notification about a Refund Request that is
+  no longer open.
+- /new Lesson Question/ goes to the Instructor. When a Platform Admin answers it
+  (making it an Answered Lesson Question), the Instructor's Notification still
+  looks like work to do.
+
+The other two types (/Refund Request decided/, /new Lesson Reply/) are purely
+informational to one person, so nothing else can "deal with" them.
+
+Options:
+- A. Do nothing: stale Notifications stay unread until clicked; clicking lands
+  on the page, which shows the current state.
+- B. Mark read: when the subject leaves the state that caused the Notification,
+  Cadence asks Knock to mark those Notifications read for every recipient. Same
+  rules as ~notify~: after the write commits, failure logged and never breaks
+  the action.
+- C. Archive instead of read: the stale Notification disappears from the feed.
+
+*** Recommendation
+B, only for /new Open Refund Request/ (when the Refund Request is decided) and
+/new Lesson Question/ (when it becomes an Answered Lesson Question). This
+matches the glossary: a Notification "stays until they deal with it", and here
+someone has dealt with it. Read rather than archive, so the record stays
+visible. (How Cadence finds those messages in Knock is a later question if you
+say yes.)
+
+*** Answer
+OK
+
+* Round 2
+More facts (=@knocklabs/node= 1.41.1, =@knocklabs/client=):
+- ~knock.channels.bulk.updateMessageStatus(channelId, action, filters)~ changes
+  many messages at once, asynchronously. ~action~ includes ~read~ and ~seen~;
+  filters include ~workflows~, ~recipient_ids~ and ~trigger_data~ (match on the
+  =data= the workflow was triggered with).
+- =.env= already holds ~KNOCK_FEED_CHANNEL_ID~ for the =cadence-in-app= channel.
+- Marking read sets only ~read_at~, never ~seen_at~. Since the badge counts
+  /unseen/ (Q2), a Notification marked read but never seen still counts on the
+  badge.
+
+** DONE Q7 Find stale Notifications by an id in the trigger data?
+Add the subject's id to the trigger =data=: ~refundRequestId~ on
+=refund-request-opened=, ~lessonQuestionId~ on =lesson-question-posted=. When
+the subject is dealt with, Cadence calls the bulk update on
+~KNOCK_FEED_CHANNEL_ID~, filtered by that workflow and that id. It goes through
+the ~Notifier~ seam as a second method beside ~notify~ (working name
+~markRead(type, subjectId)~), so the in-memory fake records it for tests and the
+=.outbox/= fallback writes it as JSON. Same rules as ~notify~: after the write
+commits, short timeout, failure logged, never thrown.
+
+*** Recommendation
+Yes, as described.
+
+*** Answer
+ok
+
+** DONE Q8 Mark them seen as well as read?
+Because of the fact above, marking stale Notifications read alone leaves the
+other Platform Admins' badge lit for a Refund Request that is already decided.
+Cadence can send both bulk actions, ~seen~ then ~read~.
+
+*** Recommendation
+Yes: mark them seen and read, so a stale Notification never lights the badge.
+
+*** Answer
+ok
+
+** DONE Q9 Include the person who dealt with it?
+The Platform Admin who decides the Refund Request, or the Instructor who answers
+the Lesson Question from their queue, may never have clicked their own
+Notification. The bulk update can cover every recipient (no ~recipient_ids~
+filter) or skip the actor.
+
+*** Recommendation
+Every recipient, the actor included: they have just dealt with it, so it is no
+longer news to them either.
+
+*** Answer
+Agreed
+
+** DONE Q10 What counts as "dealt with" for each subject?
+- Open Refund Request: it is decided (approved or declined). No other way out of
+  the open state exists in the glossary.
+- Lesson Question: it becomes an Answered Lesson Question (a Lesson Reply from
+  the course's Instructor or a Platform Admin), *or* it is deleted (nothing left
+  to answer; the Notification would link to a queue where it no longer appears).
+  A Student's Lesson Reply does not count.
+
+Note: marking read is not a Notification, so the standing rule "edits and
+deletes never create a Notification" still holds.
+
+*** Recommendation
+Yes, those three events: Refund Request decided; Lesson Question answered;
+Lesson Question deleted.
+
+*** Answer
+OK
+
+** DONE Q11 One-way only?
+If the answering Lesson Reply is later deleted, the Lesson Question waits for
+the Instructor again. Cadence could mark the Instructor's Notification unread
+again, or leave it.
+
+*** Recommendation
+One-way: never mark unread again. The Lesson Question is back in the
+Instructor's queue, which is where they work from; resurrecting a Notification
+is surprising and adds a second code path.
+
+*** Answer
+yes
+
+** DONE Q12 Add these to the PRD's required test cases?
+The map lists two required TDD cases every Notification type is built against.
+Add three more, written against the fake ~Notifier~:
+1. Deciding a Refund Request marks every =refund-request-opened= Notification
+   for it seen and read.
+2. Answering a Lesson Question (Instructor or Platform Admin), or deleting it,
+   marks the Instructor's =lesson-question-posted= Notification for it seen and
+   read.
+3. A Student's Lesson Reply marks nothing.
+
+*** Recommendation
+Yes, add all three to the map's Notes beside the existing two.
+
+*** Answer
+yes
+
+* Summary
+- Q1 :: Opening the popover marks every Notification in it seen (Knock default).
+- Q2 :: The bell badge counts unseen Notifications; unread ones keep their dot
+  in the popover.
+- Q3 :: A Notification becomes read only when clicked; no per-item "mark
+  unread".
+- Q4 :: Keep the feed header's "Mark all as read" button and All / Unread / Read
+  filter.
+- Q5 :: The archive button is not decided here; it stays with the "Retention and
+  archiving" fog.
+- Q6 :: When its subject is dealt with elsewhere, a /new Open Refund Request/ or
+  /new Lesson Question/ Notification is marked read automatically (not
+  archived).
+- Q7 :: Trigger =data= gains ~refundRequestId~ / ~lessonQuestionId~; a second
+  ~Notifier~ method (working name ~markRead~) calls Knock's bulk status update
+  filtered by workflow and that id, with ~notify~'s rules (after commit, short
+  timeout, logged, never thrown).
+- Q8 :: Auto-marking sets both seen and read, so a stale Notification never
+  lights the badge.
+- Q9 :: It covers every recipient, the person who dealt with it included.
+- Q10 :: Dealt with means: Refund Request decided; Lesson Question answered
+  (Instructor or Platform Admin) or deleted. A Student's Lesson Reply does not
+  count.
+- Q11 :: One-way: never marked unread again, even if the answering Lesson Reply
+  is deleted.
+- Q12 :: Three more required TDD cases join the map's Notes (decided Refund
+  Request marks read; answered or deleted Lesson Question marks read; Student
+  reply marks nothing).

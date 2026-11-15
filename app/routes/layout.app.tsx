@@ -2,6 +2,9 @@ import { Outlet } from "react-router";
 import type { Route } from "./+types/layout.app";
 import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
+import { NotificationFeedBoundary } from "~/components/notification-bell";
+import { notificationFeedProps } from "~/lib/notification-feed.server";
+import { toPerson } from "~/lib/people.server";
 import { Toaster } from "sonner";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
@@ -213,6 +216,9 @@ export async function loader({ request }: Route.LoaderArgs) {
     countryTierInfo,
     countries: COUNTRIES,
     isTeamAdmin: currentUserId ? isTeamAdmin(currentUserId) : false,
+    notificationFeed: await notificationFeedProps(
+      currentUser ? toPerson(currentUser) : null
+    ),
   };
 }
 
@@ -225,15 +231,18 @@ export default function AppLayout({ loaderData }: Route.ComponentProps) {
     countryTierInfo,
     countries,
     isTeamAdmin: userIsTeamAdmin,
+    notificationFeed,
   } = loaderData;
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        currentUser={currentUser}
-        recentCourses={recentCourses}
-        isTeamAdmin={userIsTeamAdmin}
-      />
+      <NotificationFeedBoundary feed={notificationFeed}>
+        <Sidebar
+          currentUser={currentUser}
+          recentCourses={recentCourses}
+          isTeamAdmin={userIsTeamAdmin}
+        />
+      </NotificationFeedBoundary>
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>

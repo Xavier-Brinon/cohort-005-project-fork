@@ -1,0 +1,16 @@
+{
+  "name": "Lesson reply posted",
+  "description": "Someone replied under a Lesson Question. Sent to the Lesson Question's author.",
+  "categories": ["lesson-comments"],
+  "steps": [
+    {
+      "ref": "in_app_feed_1",
+      "type": "channel",
+      "channel_key": "cadence-in-app",
+      "template": {
+        "action_url": "{{ data.url }}",
+        "markdown_body@": "in_app_feed_1/markdown_body.md"
+      }
+    }
+  ]
+}

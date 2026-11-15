@@ -1,0 +1,16 @@
+{
+  "name": "Refund request decided",
+  "description": "A Platform Admin approved or declined a Refund Request. Sent to the buyer: the Student for an Individual Purchase, the Team Admin for a Team Licence.",
+  "categories": ["refunds"],
+  "steps": [
+    {
+      "ref": "in_app_feed_1",
+      "type": "channel",
+      "channel_key": "cadence-in-app",
+      "template": {
+        "action_url": "{{ data.url }}",
+        "markdown_body@": "in_app_feed_1/markdown_body.md"
+      }
+    }
+  ]
+}

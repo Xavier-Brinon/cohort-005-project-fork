@@ -1,0 +1,150 @@
+#+title: Grill: Which notification vendor do we adopt?
+#+todo: TODO DEFER | DONE
+#+options: ^:{}
+#+startup: indent
+
+Ticket: [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/5][Which notification vendor do we adopt?]] on the
+map [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/2][In-app Notifications for Cadence]].
+Evidence: [[https://github.com/Xavier-Brinon/cohort-005-project-fork/blob/research/notification-vendors/research/notification-vendors.org][research/notification-vendors.org]].
+
+Where the shortlist stands:
+- All three (Knock, Novu, SuprSend) pass every hard criterion. None documents
+  React Router 7; the inbox is client-only everywhere and the prototype must
+  prove it.
+- Knock :: local RS256 token, unlimited environments on Free, richest status
+  model, $250/mo next tier, no EU residency yet, closed source.
+- Novu :: HMAC token, MIT open core, US + EU residency on Free, $30/mo next
+  tier; Free caps at 5 workflows and 2 environments (Dev, Prod); real-time
+  transport is inferred from a =socketUrl=, not stated.
+- SuprSend :: local ES256 token with refresh, Staging + Production on Free,
+  $100/mo next tier; SSR undocumented, pricing page possibly stale.
+- The first set has four Notification types, so on Novu's Free tier one workflow
+  slot is left.
+
+* Round 1
+** DONE Q1 Does EU data residency matter?
+Cadence records the buyer's country (ADR 0009) and sells to students anywhere.
+Notifications will carry personal data (e.g. a Platform Admin's decision note on
+a Refund Request). Knock has no EU residency yet; Novu has it on Free.
+- (a) Required: rules Knock out.
+- (b) A tie-breaker: preferred, not required.
+- (c) Ignore it for now.
+
+*** Recommendation
+(b) A tie-breaker. Nothing in Cadence today stores data by region, so making it
+a hard rule would be new policy, not a notification decision.
+
+*** Answer
+b
+
+** DONE Q2 How much does the cost of growing matter?
+The four first-set types fit every Free tier. The fifth and later types (Refund
+issued/failed, Seat claimed, thread activity) push Novu past its 5-workflow cap.
+Next tiers: Novu $30/mo, SuprSend $100/mo, Knock $250/mo. Weigh "cheap to grow"
+as a strong criterion?
+
+*** Recommendation
+Yes, strong. The later types are already tracked, so growth is planned, not
+hypothetical.
+
+*** Answer
+Not really actually
+
+** DONE Q3 Is two environments enough for QA mode?
+QA mode (in the map's fog) wants testing kept away from real users' inboxes.
+Novu Free gives Dev and Prod: local development and QA would share Dev. Knock
+gives unlimited environments; SuprSend gives Staging + Production. Is "Dev and
+Prod only" acceptable?
+
+*** Recommendation
+Yes. One non-production environment keeps tests away from real users, which is
+the point of QA mode; separating local dev from QA is a refinement.
+
+*** Answer
+Agreed
+
+** DONE Q4 How much weight does open source carry?
+The map lists open source / self-hostable as nice to have. Only Novu has an open
+core (MIT), and even there self-hosting is sold on Enterprise. Keep it as a
+minor tie-breaker?
+
+*** Recommendation
+Yes, minor: it lowers lock-in (you could read or fork the SDK), but nobody plans
+to self-host.
+
+*** Answer
+ok
+
+** DONE Q5 Widen the field?
+The research skipped Engagespot and NotificationAPI. Evaluate them before
+deciding?
+
+*** Recommendation
+No. Three vendors already pass every hard criterion; another round of research
+would not change the shape of the choice.
+
+*** Answer
+Actually yes try them too
+
+* Round 2
+New facts since Round 1:
+- [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/9][Do Engagespot or NotificationAPI beat the vendor shortlist?]]: no. Both fail
+  product health (Engagespot's site is dead and its SDKs are stale;
+  NotificationAPI, now Pingram, has moved away from in-app).
+- Shortlist health on the npm registry (2026-11-14): =@knocklabs/react= 0.15.1
+  and =@knocklabs/node= 1.41.1 published in November 2026; =@suprsend/react=
+  1.5.0 in October; =@novu/react= 3.19.2 in September. All three are alive.
+
+** DONE Q6 Adopt Knock?
+With your Round 1 weights (cost barely matters, EU and open source are only
+tie-breakers), Knock leads on what's left:
+- unlimited environments on Free, so QA mode can have its own environment apart
+  from local development;
+- user token signed locally (RS256) with an expiry, no network call in the
+  loader;
+- the richest read state (seen, read, interacted, archived), which the
+  read/unread fog will need;
+- the most recently published SDKs and a documented client-only component.
+Accepted costs: no EU residency yet (promised by end of 2026), closed source,
+$250/mo next tier.
+
+*** Recommendation
+Yes, adopt Knock.
+
+*** Answer
+Agreed
+
+** DONE Q7 Runner-up if the prototype fails
+The prototype must still prove the React Router 7 pattern (token signed in a
+loader, inbox mounted after hydration) and real-time delivery. If Knock fails
+that, fall back to Novu without reopening this grill?
+
+*** Recommendation
+Yes: Novu is the named fallback; a failure only reopens the choice if Novu fails
+too.
+
+*** Answer
+Agreed
+
+** DONE Q8 Record it as an ADR?
+The choice is hard to reverse (feeds, read state and user tokens live with the
+vendor), surprising without context (a reader may ask why not the open-source,
+EU-ready, cheaper Novu), and the result of a real trade-off. Write
+=docs/adr/0013-knock-for-in-app-notifications.md=?
+
+*** Recommendation
+Yes, if Q6 is yes. It names the trade-offs from Q1 to Q4 and the Novu fallback.
+
+*** Answer
+Yes
+file:../docs/adr/0013-knock-for-in-app-notifications.md
+
+* Summary
+- Q1 :: EU data residency is a tie-breaker, not a requirement.
+- Q2 :: Cost of growth barely matters.
+- Q3 :: Dev and Prod environments are enough for QA mode.
+- Q4 :: Open source is a minor tie-breaker.
+- Q5 :: Field widened: Engagespot and NotificationAPI researched, both dropped.
+- Q6 :: Adopt Knock.
+- Q7 :: Novu is the fallback if Knock fails the prototype.
+- Q8 :: Recorded as ADR 0013.

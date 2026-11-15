@@ -1,0 +1,335 @@
+#+title: Grill: Where are Notifications triggered and stored?
+#+todo: TODO DEFER | DONE
+#+options: ^:{}
+#+startup: indent
+
+Ticket: [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/8][Where are Notifications triggered and stored?]] on the
+map [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/2][In-app Notifications for Cadence]].
+
+Facts from the code:
+- User ids are integers (=app/db/schema.ts:48=). Platform Admin is =users.role =
+  'admin'=; there is no helper that lists them.
+- The session user is loaded in the layout loader
+  (=app/routes/layout.app.tsx:174=), the natural place to sign the Knock user
+  token.
+- DevUI switches users by setting the session directly
+  (=app/routes/api.switch-user.ts=), and the seed inserts users without signup.
+  A hook on login or signup would miss most users in dev.
+- Existing side-effect seam: refund services return an =email= object and the
+  route calls =await sendEmail(result.email)= after the service returns, so
+  after the write commits. =app/lib/mailer.server.ts= has a =MailTransport=
+  interface and a =.outbox/= JSON fallback when Postmark isn't configured.
+- Refund Request decided: =app/routes/admin.refunds.tsx= action, services
+  =approveRefundRequest= / =declineRefundRequest= in
+  =app/lib/refunds.server.ts=, each in a transaction. The buyer's id is known
+  inside the service but not returned.
+- Refund Request opened: =app/routes/courses.$slug.refund.ts= action, service
+  =raiseRefundRequest=, plain insert, no transaction.
+- Lesson Comments have no service: =createComment= is copy-pasted in the lesson
+  route (=courses.$slug.lessons.$lessonId.tsx=, Questions and Replies) and in
+  =instructor.questions.tsx= (staff Replies from the queue). Both are plain
+  inserts.
+- One Instructor per course (=courses.instructorId=), no co-instructors.
+- The Instructor's question queue already leaves out Lesson Questions posted by
+  a Platform Admin or by the course's own Instructor.
+- A Lesson Reply can be posted under a soft-deleted Lesson Question today.
+- No Knock code exists yet.
+
+* Round 1
+** DONE Q1 The vendor alone holds Notifications
+Cadence keeps no =notifications= table. Knock holds every Notification and its
+read/seen/archived state; Cadence only triggers. If Cadence ever needs its own
+record (audit, analytics), that's a later effort.
+
+*** Recommendation
+Yes: Knock alone, no Cadence table.
+
+*** Answer
+later effort yes, is it worth writing that down somewhere?
+
+** DONE Q2 One Knock workflow per Notification type
+Four workflows, one per type, each with the in-app feed step on the
+=cadence-in-app= channel. Proposed keys:
+- =refund-request-decided= (one workflow, the decision is a =data= field, as
+  settled in the types ticket)
+- =refund-request-opened=
+- =lesson-question-posted=
+- =lesson-reply-posted=
+
+*** Recommendation
+Yes, these four keys.
+
+*** Answer
+Agreed
+
+** DONE Q3 Vendor user id is the Cadence user id as a string
+Knock user id = =String(users.id)=. Knock's Development, QA and Production
+environments are separate, so the same integer in a dev database and in
+production never collide.
+
+*** Recommendation
+Yes.
+
+*** Answer
+OK
+
+** DONE Q4 Identify recipients inline at trigger time
+Options:
+- A. Identify on login and signup: misses seeded users and DevUI switching.
+- B. Identify in the layout loader on every authenticated page load, next to
+  signing the token: always fresh, but a vendor call on every page.
+- C. Identify inline at trigger time: each trigger passes recipients as ={ id,
+  name }= and Knock upserts them. A user who has never received a Notification
+  simply has an empty feed.
+
+*** Recommendation
+C. No login hook, no per-page vendor call. A renamed user's name updates on
+their next Notification.
+
+*** Answer
+OK
+
+** DONE Q5 Trigger from the route, after the write
+Mirror the email seam: the write returns what the Notification needs, and the
+route action calls a =notify= function after the write returns (so after commit
+for the two transactional refund decisions). Refund services extend their result
+with the buyer and course details; the comment path gets the same shape (see
+Q6).
+
+*** Recommendation
+Yes: route-level =notify= call after the write, beside =sendEmail=.
+
+*** Answer
+OK
+
+** DONE Q6 One shared Lesson Comment write for both pages
+Lesson Replies are posted from two places (the lesson page and the Instructor's
+question queue), each with its own =createComment= copy. Make one shared
+server-side Lesson Comment write that both routes call and that returns the
+Notification to send, so a Lesson Reply notifies the same way from either page.
+The alternative is adding the notify logic to both copies.
+
+*** Recommendation
+Yes: the PRD names the merge of the two =createComment= copies as part of the
+work.
+
+*** Answer
+OK
+
+** DONE Q7 Await the trigger, catch and log every failure
+The standing rule: notifying never breaks the action. Options:
+- A. =await= inside a wrapper that catches and logs, with a short timeout (say
+  3s), so a slow vendor delays the response at most that long.
+- B. Fire and forget (no await): fastest, but the trigger can be dropped if the
+  server process ends the request early, and errors get lost more easily.
+
+*** Recommendation
+A.
+
+*** Answer
+OK
+
+** DONE Q8 Every Platform Admin, queried at trigger time
+=refund-request-opened= goes to every user with the admin role, queried when the
+Refund Request is raised, minus the buyer if the buyer is a Platform Admin. The
+alternative (a Knock Object "platform-admins" with subscriptions) needs keeping
+in sync with role changes.
+
+*** Recommendation
+Yes: query at trigger time.
+
+*** Answer
+Agreed
+
+** DONE Q9 Lesson Question recipient mirrors the question queue
+=lesson-question-posted= goes to the course's Instructor, and is skipped when
+the Lesson Question was posted by that Instructor or by a Platform Admin, the
+same rule the queue uses to decide a Lesson Question is waiting on the
+Instructor.
+
+*** Recommendation
+Yes: notify exactly when the Lesson Question would appear in the Instructor's
+queue.
+
+*** Answer
+OK
+
+** DONE Q10 Lesson Reply recipient and the deleted-question case
+=lesson-reply-posted= goes to the Lesson Question's author on any Lesson Reply
+by someone else (Student, Instructor or Platform Admin), from either entry
+point. If the Lesson Question is deleted, nobody is notified (the author removed
+it, so they are no longer waiting).
+
+*** Recommendation
+Yes to both.
+
+*** Answer
+OK
+
+** DONE Q11 A =Notifier= seam with a fake for tests
+Mirror =MailTransport=: a small =Notifier= interface (=trigger(type, recipients,
+data)=) with a Knock implementation and an in-memory fake. The two required TDD
+cases (actor never notified; edits and deletes never notify) are written against
+the fake.
+
+*** Recommendation
+Yes.
+
+*** Answer
+OK
+
+* Round 2
+On Q1's "worth writing down?": yes. A Cadence-side record of Notifications (for
+audit or analytics) goes on the map's /Out of scope/ list when this ticket
+closes, so it survives as a later effort.
+
+Facts from the code:
+- The buyer of an Individual Purchase raises and follows a Refund Request on the
+  course page (=/courses/:slug=); a Team Admin does it on =/team=.
+- Platform Admins decide Refund Requests on =/admin/refunds=; Instructors answer
+  Lesson Questions on =/instructor/questions=.
+- Lesson Comments on the lesson page carry no element id today, so a link can't
+  jump to one comment yet.
+- No Knock workflows are in the repo; the prototype's were made in the Knock
+  dashboard.
+
+** DONE Q12 Cadence builds the link; the template only shows it
+Each trigger sends a ready-made =url= in =data=, built by Cadence (which knows
+its routes), and the Knock template uses it as the action URL. Proposed links:
+- =refund-request-decided= :: =/courses/:slug= for an Individual Purchase,
+  =/team= for a Team Licence.
+- =refund-request-opened= :: =/admin/refunds=.
+- =lesson-question-posted= :: =/instructor/questions= (where the Instructor
+  answers).
+- =lesson-reply-posted= :: the lesson page, jumping to the Lesson Question
+  (=/courses/:slug/lessons/:lessonId#comment-<id>=). This needs an element id on
+  each Lesson Question, a small UI addition the PRD names.
+
+*** Recommendation
+Yes, these links.
+
+*** Answer
+=refund-request-decided= why the word =decided=, the 3 others are fine
+
+** DONE Q13 The =data= each trigger sends
+Besides =url=, each trigger sends only what its template shows:
+- =refund-request-decided= :: =decision= (approved/declined), =courseTitle=,
+  =note= (or null), =purchaseKind= (Individual Purchase / Team Licence).
+- =refund-request-opened= :: =buyerName=, =courseTitle=, =purchaseKind=,
+  =reasonExcerpt=.
+- =lesson-question-posted= :: =authorName=, =courseTitle=, =lessonTitle=,
+  =excerpt=.
+- =lesson-reply-posted= :: =replierName=, =lessonTitle=, =excerpt=.
+Excerpts are cut to about 140 characters. Since edits never notify, an excerpt
+can go stale after its Lesson Comment is edited; accepted.
+
+*** Recommendation
+Yes, with excerpts.
+
+*** Answer
+ok
+
+** DONE Q14 =notify= drops the actor centrally
+=notify= takes the =actor= alongside the recipients, removes the actor from the
+recipients, and sends nothing when no recipient is left. "Never notify the
+actor" then holds for every type by construction, and is still tested per type.
+The actor is also passed to Knock as the trigger's =actor=, so the prebuilt feed
+can show who acted.
+
+*** Recommendation
+Yes.
+
+*** Answer
+OK
+
+** DONE Q15 Without Knock keys, write to =.outbox/=
+Mirror the mailer: when the Knock secret key is missing (local dev, tests), the
+=Notifier= writes each trigger to =.outbox/notifications/= as JSON instead of
+calling Knock. The inbox shows nothing in that mode.
+
+*** Recommendation
+Yes.
+
+*** Answer
+OK
+
+** DONE Q16 Knock workflows live in the repo
+Keep the four workflows (steps and templates) in the repo with the Knock CLI
+(=knock workflow pull/push=), so wording changes are reviewed like code and
+promoted from Development to Production deliberately. The alternative is editing
+them only in the Knock dashboard.
+
+*** Recommendation
+Yes: in the repo, pushed with the Knock CLI.
+
+*** Answer
+ok
+
+* Round 3
+** DONE Q17 Why =refund-request-decided=
+Q12's answer asks why the key says /decided/. It comes from the glossary's own
+verb: "Only a Platform Admin *decides* Refund Requests", and an Open Refund
+Request is one "no Platform Admin has *decided* yet". The one word covers both
+outcomes, approved and declined, which is why one workflow carries the outcome
+in =data=. Alternatives:
+- =refund-request-resolved= :: matches the code's =resolvedByUserId= column, but
+  "resolved" isn't glossary language and can read as "the Refund is done".
+- =refund-request-answered= :: clashes with /Answered Lesson Question/.
+- Two keys, =refund-request-approved= and =refund-request-declined= :: undoes
+  the one-type decision from the types ticket.
+
+*** Recommendation
+Keep =refund-request-decided=: it is the glossary's verb for both outcomes.
+
+*** Answer
+what about settled, like a promise in javascript
+
+* Round 4
+** DONE Q18 Settled or decided
+Q17's answer proposes =refund-request-settled=, after a JavaScript promise that
+settles as fulfilled or rejected. The analogy fits the shape (one word for both
+outcomes), but in payments /settled/ already means /the money has moved/. Here
+that reads as an Issued Refund, the opposite of a Declined Refund Request, where
+no money moves at all. A Platform Admin or a future reader of the Knock
+dashboard would likely take =refund-request-settled= to mean "the Refund was
+paid".
+
+/Decided/ is also the glossary's verb, so the key, the glossary and the PRD all
+say the same thing.
+
+*** Recommendation
+Keep =refund-request-decided=; don't adopt /settled/ for Refund Requests.
+
+*** Answer
+Agreed
+
+* Summary
+- Q1 :: Knock alone holds Notifications and their read state; a Cadence-side
+  record goes to the map's /Out of scope/.
+- Q2, Q17, Q18 :: Four Knock workflows: =refund-request-decided=,
+  =refund-request-opened=, =lesson-question-posted=, =lesson-reply-posted=.
+- Q3 :: Knock user id is =String(users.id)=.
+- Q4 :: Recipients are identified inline at trigger time; no login hook.
+- Q5 :: The route calls =notify= after the write returns, beside =sendEmail=;
+  refund services return buyer and course details.
+- Q6 :: The two =createComment= copies merge into one shared Lesson Comment
+  write that returns the Notification.
+- Q7 :: =notify= is awaited with a short timeout; every failure is caught and
+  logged.
+- Q8 :: =refund-request-opened= goes to every Platform Admin, queried at trigger
+  time.
+- Q9 :: =lesson-question-posted= goes to the Instructor exactly when the Lesson
+  Question would enter their queue.
+- Q10 :: =lesson-reply-posted= goes to the Lesson Question's author on any
+  Lesson Reply by someone else, from either page; none for a deleted Lesson
+  Question.
+- Q11 :: A =Notifier= interface with a Knock implementation and an in-memory
+  fake for the TDD cases.
+- Q12 :: Cadence builds each Notification's =url=; Lesson Questions get element
+  ids so a Lesson Reply's link can jump to them.
+- Q13 :: Each trigger sends only the fields its template shows, with excerpts of
+  about 140 characters.
+- Q14 :: =notify= takes the actor, drops them from the recipients and passes
+  them to Knock as =actor=.
+- Q15 :: Without Knock keys the =Notifier= writes to =.outbox/notifications/=.
+- Q16 :: The workflows live in the repo, pushed with the Knock CLI.
