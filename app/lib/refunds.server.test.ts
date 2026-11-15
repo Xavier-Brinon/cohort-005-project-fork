@@ -13,6 +13,8 @@ import {
   listRefundRequestsForReview,
   listTeamLicences,
   raiseRefundRequest,
+  type DecisionResult,
+  type RaiseResult,
 } from "./refunds.server";
 import {
   deliver,
@@ -21,6 +23,16 @@ import {
 } from "./notifications.server";
 
 type TestDb = ReturnType<typeof createTestDb>;
+
+// Hands `deliver` whatever a write returned, failed or not, so a Failure that
+// carried intents would show up in the fake notifier. Routes skip `deliver`
+// on a Failure; these tests do not, or they could never fail.
+function deliverAnyway(
+  result: RaiseResult | DecisionResult,
+  notifier: FakeNotifier
+) {
+  return deliver({ notify: undefined, markRead: undefined, ...result }, notifier);
+}
 
 const NOW = new Date(2026, 9, 6, 12, 0, 0);
 
@@ -542,7 +554,6 @@ describe("refund-request-opened Notifications", () => {
     ]);
   });
 
-  // Delivers the way the refund route does: only a raise that succeeded.
   async function raiseAndDeliver(
     notifier: FakeNotifier,
     purchaseId: number,
@@ -550,7 +561,7 @@ describe("refund-request-opened Notifications", () => {
     reason = "It was not what I expected."
   ) {
     const result = raiseRefundRequest(db, purchaseId, buyerId, reason, NOW);
-    if (result.ok) await deliver(result, notifier);
+    await deliverAnyway(result, notifier);
     return result;
   }
 
@@ -681,7 +692,7 @@ describe("refund-request-decided Notifications", () => {
       decision === "approve"
         ? approveRefundRequest(db, refundRequestId, deciderId, note, NOW)
         : declineRefundRequest(db, refundRequestId, deciderId, note ?? "", NOW);
-    if (result.ok) await deliver(result, notifier);
+    await deliverAnyway(result, notifier);
     return result;
   }
 

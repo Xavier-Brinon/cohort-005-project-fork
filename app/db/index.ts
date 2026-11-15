@@ -1,6 +1,14 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "./schema";
+
+// The database a domain module takes first, so tests can hand in an
+// in-memory one.
+export type Db = BetterSQLite3Database<typeof schema>;
+type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+// The database or a transaction on it.
+export type Queryable = Db | Tx;
 
 // The connection is opened lazily, on first use. Opening it at module scope
 // made this module side-effectful, which meant Rollup could not drop it from

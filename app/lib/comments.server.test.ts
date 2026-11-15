@@ -354,7 +354,7 @@ describe("lesson-question-posted Notifications", () => {
     ]);
   });
 
-  it("creates no Notification when a Lesson Question is edited or deleted", () => {
+  it("creates no Notification when a Lesson Question is edited or deleted", async () => {
     const question = createLessonComment(
       db,
       base.user.id,
@@ -362,23 +362,18 @@ describe("lesson-question-posted Notifications", () => {
       null,
       "Why?"
     );
-    const edited = editLessonComment(
-      db,
-      question.id,
-      base.user.id,
-      "Why not?",
-      NOW
+
+    const notifier = fakeNotifier();
+    await deliver(
+      editLessonComment(db, question.id, base.user.id, "Why not?", NOW),
+      notifier
     );
-    const deleted = deleteLessonComment(
-      db,
-      question.id,
-      base.user.id,
-      false,
-      NOW
+    await deliver(
+      deleteLessonComment(db, question.id, base.user.id, false, NOW),
+      notifier
     );
 
-    expect(edited).not.toHaveProperty("notify");
-    expect(deleted).not.toHaveProperty("notify");
+    expect(notifier.sent).toEqual([]);
   });
 });
 
@@ -437,6 +432,23 @@ describe("marking a lesson-question-posted Notification read", () => {
     const notifier = fakeNotifier();
     await deliver(
       createLessonComment(db, base.user.id, lessonId, question.id, "Anyone?"),
+      notifier
+    );
+    expect(notifier.marked).toEqual([]);
+  });
+
+  it("marks nothing when the Instructor answers a Lesson Question already deleted", async () => {
+    const question = postQuestion();
+    deleteLessonComment(db, question.id, base.user.id, false, NOW);
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(
+        db,
+        base.instructor.id,
+        lessonId,
+        question.id,
+        "Because."
+      ),
       notifier
     );
     expect(notifier.marked).toEqual([]);

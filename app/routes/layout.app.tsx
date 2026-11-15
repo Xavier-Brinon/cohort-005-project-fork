@@ -4,6 +4,7 @@ import { Sidebar } from "~/components/sidebar";
 import { DevUI } from "~/components/dev-ui";
 import { NotificationFeedBoundary } from "~/components/notification-bell";
 import { notificationFeedProps } from "~/lib/notification-feed.server";
+import { toPerson } from "~/lib/people.server";
 import { Toaster } from "sonner";
 import { getCurrentUserId, getDevCountry } from "~/lib/session";
 import { getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
@@ -216,7 +217,7 @@ export async function loader({ request }: Route.LoaderArgs) {
     countries: COUNTRIES,
     isTeamAdmin: currentUserId ? isTeamAdmin(currentUserId) : false,
     notificationFeed: await notificationFeedProps(
-      currentUser ? { id: currentUser.id, name: currentUser.name } : null
+      currentUser ? toPerson(currentUser) : null
     ),
   };
 }

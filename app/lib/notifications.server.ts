@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { PurchaseKind } from "~/lib/refunds.server";
+import type { PurchaseKind } from "~/lib/refund-rules";
 
 // ─── In-app Notifications ───
 // Knock delivers every Notification (docs/adr/0013). This module is the one
@@ -188,22 +188,27 @@ export function outboxNotifier(directory: string): Notifier {
   };
 }
 
+// What the fake records per `notify` call. Looser than `NotifyIntent`:
+// a generic `type` cannot prove which `data` shape goes with it, and tests
+// only compare the recording against literals.
+export type SentNotification = {
+  type: NotificationType;
+} & Notification<NotificationType>;
+
 export type FakeNotifier = Notifier & {
-  sent: NotifyIntent[];
+  sent: SentNotification[];
   marked: MarkReadIntent[];
 };
 
 // Records every call, for tests.
 export function fakeNotifier(): FakeNotifier {
-  const sent: NotifyIntent[] = [];
+  const sent: SentNotification[] = [];
   const marked: MarkReadIntent[] = [];
   return {
     sent,
     marked,
     async notify(type, notification) {
-      // Rebuilding the intent from `type` loses the link between `type` and
-      // `data` that the generic signature guarantees; it holds here.
-      sent.push({ type, ...notification } as NotifyIntent);
+      sent.push({ type, ...notification });
     },
     async markRead(type, subjectId) {
       marked.push({ type, subjectId });
@@ -239,14 +244,14 @@ export async function deliver(
 ): Promise<void> {
   const calls: { label: string; run: () => Promise<void> }[] = [];
 
-  for (const intent of deliverable.notify ?? []) {
-    const recipients = intent.recipients.filter(
-      (recipient) => recipient.id !== intent.actor.id
+  for (const { type, ...notification } of deliverable.notify ?? []) {
+    const recipients = notification.recipients.filter(
+      (recipient) => recipient.id !== notification.actor.id
     );
     if (recipients.length === 0) continue;
     calls.push({
-      label: `notify ${intent.type}`,
-      run: () => sendIntent(notifier, { ...intent, recipients }),
+      label: `notify ${type}`,
+      run: () => notifier.notify(type, { ...notification, recipients }),
     });
   }
 
@@ -260,11 +265,6 @@ export async function deliver(
   await Promise.all(
     calls.map(({ label, run }) => withTimeout(label, run, timeoutMs))
   );
-}
-
-function sendIntent(notifier: Notifier, intent: NotifyIntent): Promise<void> {
-  const { type, ...notification } = intent;
-  return notifier.notify(type, notification);
 }
 
 async function withTimeout(
@@ -291,11 +291,11 @@ async function withTimeout(
 
 // ─── Excerpts ───
 
-export const EXCERPT_LENGTH = 140;
+const EXCERPT_LENGTH = 140;
 
 // Cuts free text to about 140 characters for a Notification, on one line.
-export function excerpt(text: string, length: number = EXCERPT_LENGTH): string {
+export function excerpt(text: string): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
-  if (oneLine.length <= length) return oneLine;
-  return `${oneLine.slice(0, length - 1).trimEnd()}…`;
+  if (oneLine.length <= EXCERPT_LENGTH) return oneLine;
+  return `${oneLine.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…`;
 }

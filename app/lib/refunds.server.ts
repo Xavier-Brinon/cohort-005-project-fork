@@ -1,7 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { alias } from "drizzle-orm/sqlite-core";
-import * as schema from "~/db/schema";
+import type { Db, Queryable } from "~/db";
 import {
   coupons,
   courses,
@@ -18,6 +17,7 @@ import {
   UserRole,
 } from "~/db/schema";
 import { formatPrice } from "~/lib/utils";
+import { findPerson, toPerson } from "~/lib/people.server";
 import {
   excerpt,
   type MarkReadIntent,
@@ -27,6 +27,7 @@ import {
   REFUND_COMPLETION_LIMIT,
   REFUND_WATCH_LIMIT_SECONDS,
   REFUND_WINDOW_DAYS,
+  type PurchaseKind,
   type RuleBreak,
 } from "~/lib/refund-rules";
 
@@ -38,9 +39,6 @@ import {
 // Every function takes the database first, so tests can hand in an in-memory
 // one. Uses positional parameters (project convention).
 
-export type Db = BetterSQLite3Database<typeof schema>;
-type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
-type Queryable = Db | Tx;
 
 type Purchase = typeof purchases.$inferSelect;
 type Seat = typeof coupons.$inferSelect;
@@ -89,8 +87,6 @@ function isClaimed(seat: Seat) {
 
 // There is no column saying which kind a Purchase is: a Team Licence is the
 // Purchase that granted Seats, and every Team Licence grants at least one.
-export type PurchaseKind = "individual_purchase" | "team_licence";
-
 function kindOf(seats: Seat[]): PurchaseKind {
   return seats.length > 0 ? "team_licence" : "individual_purchase";
 }
@@ -388,7 +384,7 @@ export function raiseRefundRequest(
   if (!check.ok) return check;
 
   const { purchase } = check;
-  const buyer = db.select().from(users).where(eq(users.id, buyerId)).get();
+  const buyer = findPerson(db, buyerId);
   const course = db
     .select()
     .from(courses)
@@ -419,7 +415,7 @@ export function raiseRefundRequest(
     notify: [
       {
         type: "refund-request-opened",
-        actor: { id: buyer.id, name: buyer.name },
+        actor: toPerson(buyer),
         recipients: listPlatformAdmins(db),
         data: {
           refundRequestId: refundRequest.id,
@@ -724,14 +720,10 @@ export function approveRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return decided(
-      tx,
-      refundRequestId,
-      purchase,
-      platformAdminId,
-      RefundStatus.Approved,
-      note
-    );
+    return decisionResult(tx, refundRequestId, purchase, platformAdminId, {
+      status: RefundStatus.Approved,
+      note,
+    });
   });
 }
 
@@ -771,34 +763,36 @@ export function declineRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return decided(
+    return decisionResult(
       tx,
       refundRequestId,
       found.purchase,
       platformAdminId,
-      RefundStatus.Declined,
-      trimmedNote
+      { status: RefundStatus.Declined, note: trimmedNote }
     );
   });
 }
 
-type Decision = RefundStatus.Approved | RefundStatus.Declined;
+// What a Platform Admin decided, and the note they wrote the buyer.
+type Decision = {
+  status: RefundStatus.Approved | RefundStatus.Declined;
+  note: string | null;
+};
 
 /**
  * What a decided Refund Request hands the route: the buyer's email, their
  * refund-request-decided Notification, and the mark-read intent that clears
  * every Platform Admin's refund-request-opened Notification for it.
  */
-function decided(
+function decisionResult(
   db: Queryable,
   refundRequestId: number,
   purchase: Purchase,
   platformAdminId: number,
-  decision: Decision,
-  note: string | null
+  decision: Decision
 ): DecisionResult {
-  const buyer = getPerson(db, purchase.userId);
-  const platformAdmin = getPerson(db, platformAdminId);
+  const buyer = findPerson(db, purchase.userId);
+  const platformAdmin = findPerson(db, platformAdminId);
   const course = db
     .select()
     .from(courses)
@@ -811,12 +805,12 @@ function decided(
       ? [
           {
             type: "refund-request-decided",
-            actor: { id: platformAdmin.id, name: platformAdmin.name },
-            recipients: [{ id: buyer.id, name: buyer.name }],
+            actor: toPerson(platformAdmin),
+            recipients: [toPerson(buyer)],
             data: {
-              decision,
+              decision: decision.status,
               courseTitle: course.title,
-              note,
+              note: decision.note,
               purchaseKind,
               // A Team Admin manages a Team Licence from the team page.
               url:
@@ -830,18 +824,10 @@ function decided(
 
   return {
     ok: true,
-    email: buildDecisionEmail(purchase, buyer, course, decision, note),
+    email: buildDecisionEmail(purchase, buyer, course, decision),
     notify,
     markRead: [{ type: "refund-request-opened", subjectId: refundRequestId }],
   };
-}
-
-function getPerson(db: Queryable, userId: number) {
-  return db
-    .select({ id: users.id, name: users.name, email: users.email })
-    .from(users)
-    .where(eq(users.id, userId))
-    .get();
 }
 
 /** The email the buyer gets once their Refund Request is decided. */
@@ -849,14 +835,13 @@ function buildDecisionEmail(
   purchase: Purchase,
   buyer: { name: string; email: string } | undefined,
   course: { title: string } | undefined,
-  decision: Decision,
-  note: string | null
+  { status, note }: Decision
 ): Email {
   const courseTitle = course?.title ?? "your course";
   const noteLines = note ? ["", note] : [];
 
   const middle =
-    decision === RefundStatus.Approved
+    status === RefundStatus.Approved
       ? [
           `We have approved your refund request for "${courseTitle}".`,
           `${formatPrice(purchase.amountPaid)}, the full amount you paid, is on its way back to you.`,
@@ -871,7 +856,7 @@ function buildDecisionEmail(
 
   return {
     to: buyer?.email ?? "",
-    subject: `Refund ${decision} — ${courseTitle}`,
+    subject: `Refund ${status} — ${courseTitle}`,
     body: [
       `Hi ${buyer?.name ?? "there"},`,
       "",
