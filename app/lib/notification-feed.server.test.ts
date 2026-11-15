@@ -5,7 +5,9 @@ import {
   type FeedConfig,
 } from "./notification-feed.server";
 
-const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+  modulusLength: 2048,
+});
 const signingKey = privateKey
   .export({ type: "pkcs8", format: "pem" })
   .toString();

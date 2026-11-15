@@ -164,10 +164,10 @@ function knockPerson(person: Person) {
 
 export function outboxNotifier(directory: string): Notifier {
   function write(
-    entry: { operation: "notify" | "markRead"; type: NotificationType } & Record<
-      string,
-      unknown
-    >
+    entry: {
+      operation: "notify" | "markRead";
+      type: NotificationType;
+    } & Record<string, unknown>
   ) {
     mkdirSync(directory, { recursive: true });
     // A notify and a markRead can land in the same millisecond.
