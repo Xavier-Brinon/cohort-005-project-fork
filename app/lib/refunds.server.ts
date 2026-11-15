@@ -775,7 +775,7 @@ export function declineRefundRequest(
 
 // What a Platform Admin decided, and the note they wrote the buyer.
 type Decision = {
-  status: RefundStatus.Approved | RefundStatus.Declined;
+  status: typeof RefundStatus.Approved | typeof RefundStatus.Declined;
   note: string | null;
 };
 

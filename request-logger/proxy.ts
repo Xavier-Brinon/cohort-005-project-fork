@@ -23,15 +23,15 @@ import path from "node:path";
 import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { styleText } from "node:util";
-import { renderMarkdown } from "./render";
+import { renderMarkdown } from "./render.ts";
 import {
   resolveChoice,
   shouldLogRequest,
   type AgentChoice,
   type CustomTarget,
   type ResolvedTarget,
-} from "./agents";
-import { askChoice, clearChoice, loadChoice, saveChoice } from "./config";
+} from "./agents.ts";
+import { askChoice, clearChoice, loadChoice, saveChoice } from "./config.ts";
 
 /**
  * A resolved target the proxy can actually route to and render: a catalogue
@@ -575,7 +575,7 @@ function wrap(text: string, width: number): string[] {
 }
 
 // Only start the wizard and the server when this file is run directly (`npm
-// run request-logger`, or `tsx request-logger/proxy.ts`), not when it is
+// run request-logger`, or `node request-logger/proxy.ts`), not when it is
 // imported — the tests import pure functions like upstreamConnection from
 // this module, and must not trigger the interactive wizard by doing so.
 const isMain = path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url);

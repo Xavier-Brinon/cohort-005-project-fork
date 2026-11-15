@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import zlib from "node:zlib";
-import { decodeRequestBody, renderMarkdown } from "./render";
+import { decodeRequestBody, renderMarkdown } from "./render.ts";
 
 const BASE = {
   timestamp: "2026-08-06T10:00:00.000Z",

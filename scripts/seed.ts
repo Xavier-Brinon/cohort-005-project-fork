@@ -5,7 +5,7 @@ import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as schema from "../app/db/schema";
+import * as schema from "../app/db/schema.ts";
 import {
   UserRole,
   CourseStatus,
@@ -13,7 +13,7 @@ import {
   RefundStatus,
   QuestionType,
   TeamMemberRole,
-} from "../app/db/schema";
+} from "../app/db/schema.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
