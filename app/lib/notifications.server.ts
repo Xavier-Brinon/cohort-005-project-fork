@@ -291,11 +291,11 @@ async function withTimeout(
 
 // ─── Excerpts ───
 
-export const EXCERPT_LENGTH = 140;
+const EXCERPT_LENGTH = 140;
 
 // Cuts free text to about 140 characters for a Notification, on one line.
-export function excerpt(text: string, length: number = EXCERPT_LENGTH): string {
+export function excerpt(text: string): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
-  if (oneLine.length <= length) return oneLine;
-  return `${oneLine.slice(0, length - 1).trimEnd()}…`;
+  if (oneLine.length <= EXCERPT_LENGTH) return oneLine;
+  return `${oneLine.slice(0, EXCERPT_LENGTH - 1).trimEnd()}…`;
 }
