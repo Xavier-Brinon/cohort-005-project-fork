@@ -5,7 +5,7 @@ import {
   lessons,
   modules,
   UserRole,
-  users,
+  type users,
 } from "~/db/schema";
 import type { Db } from "~/db";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "~/lib/comments";
@@ -15,8 +15,10 @@ import {
   type MarkReadIntent,
   type NotifyIntent,
 } from "~/lib/notifications.server";
+import { findPerson, toPerson } from "~/lib/people.server";
 
 type LessonComment = typeof comments.$inferSelect;
+type User = typeof users.$inferSelect;
 
 // ─── Lesson Comments ───
 // Creating, editing and soft-deleting Lesson Questions and Lesson Replies.
@@ -53,12 +55,8 @@ export function createLessonComment(
 ) {
   const trimmed = validBody(body);
 
-  const lesson = db
-    .select()
-    .from(lessons)
-    .where(eq(lessons.id, lessonId))
-    .get();
-  if (!lesson) {
+  const lessonCourse = findLessonCourse(db, lessonId);
+  if (!lessonCourse) {
     throw new Error("Lesson not found");
   }
 
@@ -86,37 +84,48 @@ export function createLessonComment(
   // Lesson Question's Notification was already marked read when it was
   // deleted, so answering it afterwards marks nothing.
   const notify: NotifyIntent[] = parent
-    ? lessonReplyPosted(db, comment, parent)
-    : lessonQuestionPosted(db, comment);
+    ? lessonReplyPosted(db, comment, parent, lessonCourse)
+    : lessonQuestionPosted(db, comment, lessonCourse);
   const markRead: MarkReadIntent[] =
     parent &&
     parent.deletedAt === null &&
-    isAnswerer(db, authorId, lessonId)
+    isAnswerer(findPerson(db, authorId), lessonCourse)
       ? [{ type: "lesson-question-posted", subjectId: parent.id }]
       : [];
 
   return { ...comment, notify, markRead };
 }
 
-// A Lesson Reply answers its Lesson Question when the course's Instructor or
-// a Platform Admin posts it (see `getUnansweredQuestions` in
-// instructor.questions.tsx).
-function isAnswerer(db: Db, userId: number, lessonId: number): boolean {
-  const user = db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.id, userId))
-    .get();
-  if (user?.role === UserRole.Admin) return true;
+type LessonCourse = NonNullable<ReturnType<typeof findLessonCourse>>;
 
-  const place = db
-    .select({ instructorId: courses.instructorId })
+// A lesson with the course it belongs to.
+function findLessonCourse(db: Db, lessonId: number) {
+  return db
+    .select({
+      lessonTitle: lessons.title,
+      courseTitle: courses.title,
+      courseSlug: courses.slug,
+      instructorId: courses.instructorId,
+    })
     .from(lessons)
     .innerJoin(modules, eq(modules.id, lessons.moduleId))
     .innerJoin(courses, eq(courses.id, modules.courseId))
     .where(eq(lessons.id, lessonId))
     .get();
-  return place?.instructorId === userId;
+}
+
+// The course's Instructor and every Platform Admin answer its Lesson
+// Questions: a Lesson Reply from them answers the Lesson Question, and a
+// Lesson Question from them never waits for an answer (see
+// `getUnansweredQuestions` in instructor.questions.tsx).
+function isAnswerer(
+  person: { id: number; role: User["role"] } | undefined,
+  lessonCourse: LessonCourse
+): boolean {
+  if (!person) return false;
+  return (
+    person.role === UserRole.Admin || person.id === lessonCourse.instructorId
+  );
 }
 
 // A Lesson Reply tells the Lesson Question's author, whichever page it was
@@ -125,89 +134,53 @@ function isAnswerer(db: Db, userId: number, lessonId: number): boolean {
 function lessonReplyPosted(
   db: Db,
   reply: LessonComment,
-  question: LessonComment
+  question: LessonComment,
+  lessonCourse: LessonCourse
 ): NotifyIntent[] {
   if (question.deletedAt !== null) return [];
 
   const replier = findPerson(db, reply.userId);
   const author = findPerson(db, question.userId);
-  const lesson = db
-    .select({ title: lessons.title, courseSlug: courses.slug })
-    .from(lessons)
-    .innerJoin(modules, eq(lessons.moduleId, modules.id))
-    .innerJoin(courses, eq(modules.courseId, courses.id))
-    .where(eq(lessons.id, reply.lessonId))
-    .get();
-  if (!replier || !author || !lesson) return [];
+  if (!replier || !author) return [];
 
   return [
     {
       type: "lesson-reply-posted",
-      actor: replier,
-      recipients: [author],
+      actor: toPerson(replier),
+      recipients: [toPerson(author)],
       data: {
         replierName: replier.name,
-        lessonTitle: lesson.title,
+        lessonTitle: lessonCourse.lessonTitle,
         excerpt: excerpt(reply.body),
-        url: `/courses/${lesson.courseSlug}/lessons/${reply.lessonId}#comment-${question.id}`,
+        url: `/courses/${lessonCourse.courseSlug}/lessons/${reply.lessonId}#comment-${question.id}`,
       },
     },
   ];
 }
 
-function findPerson(db: Db, userId: number) {
-  return db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(eq(users.id, userId))
-    .get();
-}
-
 // The course's Instructor hears of a Lesson Question only when it enters
-// their unanswered-questions queue: not when they or a Platform Admin
-// posted it (see `getUnansweredQuestions` in instructor.questions.tsx).
+// their unanswered-questions queue: not when an answerer posted it.
 function lessonQuestionPosted(
   db: Db,
-  question: LessonComment
+  question: LessonComment,
+  lessonCourse: LessonCourse
 ): NotifyIntent[] {
-  const author = db
-    .select({ id: users.id, name: users.name, role: users.role })
-    .from(users)
-    .where(eq(users.id, question.userId))
-    .get();
-  const place = db
-    .select({
-      lessonTitle: lessons.title,
-      courseTitle: courses.title,
-      instructorId: courses.instructorId,
-    })
-    .from(lessons)
-    .innerJoin(modules, eq(modules.id, lessons.moduleId))
-    .innerJoin(courses, eq(courses.id, modules.courseId))
-    .where(eq(lessons.id, question.lessonId))
-    .get();
-  if (!author || !place) return [];
-  if (author.role === UserRole.Admin || author.id === place.instructorId) {
-    return [];
-  }
+  const author = findPerson(db, question.userId);
+  if (!author || isAnswerer(author, lessonCourse)) return [];
 
-  const instructor = db
-    .select({ id: users.id, name: users.name })
-    .from(users)
-    .where(eq(users.id, place.instructorId))
-    .get();
+  const instructor = findPerson(db, lessonCourse.instructorId);
   if (!instructor) return [];
 
   return [
     {
       type: "lesson-question-posted",
-      actor: { id: author.id, name: author.name },
-      recipients: [instructor],
+      actor: toPerson(author),
+      recipients: [toPerson(instructor)],
       data: {
         lessonQuestionId: question.id,
         authorName: author.name,
-        courseTitle: place.courseTitle,
-        lessonTitle: place.lessonTitle,
+        courseTitle: lessonCourse.courseTitle,
+        lessonTitle: lessonCourse.lessonTitle,
         excerpt: excerpt(question.body),
         url: "/instructor/questions",
       },
@@ -215,9 +188,9 @@ function lessonQuestionPosted(
   ];
 }
 
-// Only the author or staff (Platform Admin or the course's Instructor) may
-// delete. Deleting an already deleted Lesson Comment changes nothing.
-// Deleting notifies nobody.
+// Only the author, a Platform Admin or the course's Instructor may delete.
+// Deleting an already deleted Lesson Comment changes nothing. Deleting
+// notifies nobody.
 export function deleteLessonComment(
   db: Db,
   commentId: number,
