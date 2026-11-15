@@ -5,3 +5,10 @@ allowBuilds:
   esbuild: true
   fsevents: true
   msw: true
+  protobufjs: false # postinstall only checks its own CLI's deps; not needed
+
+# Exact versions exempt from the trust-downgrade check, each reviewed by hand.
+trustPolicyExclude:
+  # Backport on the 9.x line (2025-10-18), published without the trusted
+  # publisher that 10.0.0 used. Pulled in by @knocklabs/agent-toolkit.
+  - "pino@9.14.0"

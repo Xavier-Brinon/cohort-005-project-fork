@@ -1,8 +1,8 @@
 import { run, claudeCode } from "@ai-hero/sandcastle";
-import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
+import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
 
 await run({
   agent: claudeCode("claude-opus-4-6"),
-  sandbox: docker(),
+  sandbox: podman(),
   prompt: "Hello, how are you?",
 });
