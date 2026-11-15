@@ -244,14 +244,14 @@ export async function deliver(
 ): Promise<void> {
   const calls: { label: string; run: () => Promise<void> }[] = [];
 
-  for (const intent of deliverable.notify ?? []) {
-    const recipients = intent.recipients.filter(
-      (recipient) => recipient.id !== intent.actor.id
+  for (const { type, ...notification } of deliverable.notify ?? []) {
+    const recipients = notification.recipients.filter(
+      (recipient) => recipient.id !== notification.actor.id
     );
     if (recipients.length === 0) continue;
     calls.push({
-      label: `notify ${intent.type}`,
-      run: () => sendIntent(notifier, { ...intent, recipients }),
+      label: `notify ${type}`,
+      run: () => notifier.notify(type, { ...notification, recipients }),
     });
   }
 
@@ -265,11 +265,6 @@ export async function deliver(
   await Promise.all(
     calls.map(({ label, run }) => withTimeout(label, run, timeoutMs))
   );
-}
-
-function sendIntent(notifier: Notifier, intent: NotifyIntent): Promise<void> {
-  const { type, ...notification } = intent;
-  return notifier.notify(type, notification);
 }
 
 async function withTimeout(
