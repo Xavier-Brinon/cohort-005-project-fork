@@ -1,0 +1,219 @@
+#+title: Grill: Which Notification types ship first, and to whom?
+#+todo: TODO DEFER | DONE
+#+options: ^:{}
+#+startup: indent
+
+Ticket: [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/4][Which Notification types ship first, and to whom?]] on the
+map [[https://github.com/Xavier-Brinon/cohort-005-project-fork/issues/2][In-app Notifications for Cadence]].
+
+Facts from the code:
+- Refund Requests have three states in code: =open=, =approved=, =declined=. The
+  glossary's Pending, Issued and Failed Refund have no code yet, so nothing can
+  trigger "Refund issued" or "Refund failed" today.
+- The Instructor's question queue (=instructor.questions.tsx=) is built from
+  top-level comments on lessons. Replies are one level deep.
+- A Platform Admin's decline requires a note to the buyer; an approval's note is
+  optional.
+- Seats are claimed through =redeem.$code.tsx= (the =coupons= table).
+
+* Round 1
+** DONE Q1 How big is the first set?
+Pick a small first set (about four types) that covers at least two roles, chosen
+by one test: /someone is waiting on another person's action/. Everything else
+goes to a "later types" list on the map's fog.
+
+*** Recommendation
+Yes: about four types, waiting-on-someone test, the rest listed as later.
+
+*** Answer
+OK
+
+** DONE Q2 Never notify the person who acted
+A standing rule for every type: the person whose action caused the event never
+gets a Notification about it (e.g. an Instructor replying on their own question
+thread, a Platform Admin who is also the buyer). Accept?
+
+*** Recommendation
+Yes, standing rule for all types.
+
+*** Answer
+Agreed
+
+** DONE Q3 Refund Request decided, to the buyer
+When a Platform Admin approves or declines a Refund Request, the buyer (a
+Student for an Individual Purchase, the Team Admin for a Team Licence) gets a
+Notification saying which, carrying the decision note when there is one. Ship it
+first?
+
+*** Recommendation
+Yes, first set. One type with two outcomes (approved/declined), not two types.
+
+*** Answer
+OK
+
+** DONE Q4 New Open Refund Request, to Platform Admins
+When a buyer raises a Refund Request, every Platform Admin gets a Notification
+(there is no assignment of requests to one admin). Ship it first?
+
+*** Recommendation
+Yes, first set, to every Platform Admin. Each admin's copy stays until they read
+it, even after another admin decides (the link shows the current state).
+
+*** Answer
+OK
+
+** DONE Q5 Refund issued / Refund failed
+These need the Pending/Issued/Failed Refund lifecycle, which has no code yet.
+Leave them out of the first set and list them as later types, noting they wait
+on the money side of Refunds being built?
+
+*** Recommendation
+Yes, later types; out of the first set.
+
+*** Answer
+Agreed, but we need to make sure this is tracked for a later version
+
+** DONE Q6 New question on a lesson, to the Instructor
+When a Student posts a top-level comment on a lesson, the course's Instructor
+gets a Notification linking to it. Ship it first?
+
+*** Recommendation
+Yes, first set.
+
+*** Answer
+Agreed
+
+** DONE Q7 Reply to a comment, to whom?
+When someone replies to a top-level comment, who is notified?
+- (a) Only the author of the top-level comment.
+- (b) The author plus everyone who has already replied in that thread.
+
+*** Recommendation
+(a) for the first set: only the author of the comment being answered. (b) is a
+later type ("thread activity").
+
+*** Answer
+Fair ok
+
+** DONE Q8 Seat claimed, to the Team Admin
+When a Student claims a Seat on a Team Licence, the Team Admin gets a
+Notification. Nobody is waiting on it, so it fails the Q1 test. Leave it as a
+later type?
+
+*** Recommendation
+Yes, later type.
+
+*** Answer
+Agreed
+
+** DONE Q9 Edits and deletions trigger nothing
+Editing or deleting a comment, and editing anything else, never creates a
+Notification. Accept?
+
+*** Recommendation
+Yes. What a Notification shows when its comment was later deleted belongs to the
+read/unread fog, not here.
+
+*** Answer
+ok
+
+** DONE Q10 Glossary: Question and Reply
+The code and UI talk about "questions" and "comments" but the glossary has
+neither. Proposed:
+- *Comment* :: a message a person posts on a lesson.
+- *Question* :: a top-level Comment on a lesson; it lands in the Instructor's
+  queue.
+- *Reply* :: a Comment that answers a Question, one level deep.
+Accept, and add them to =GLOSSARY.md=?
+
+*** Recommendation
+Yes.
+
+*** Answer
+those words are too vague, specify what kind of comment (maybe there are more
+than one type of comments?) what kind of questions (a lesson question?). a reply
+is a comment but there is already "comment" being defined as well. be more
+specific with each
+
+* Round 2
+Facts behind these questions, from the code:
+- Cadence has exactly one kind of comment: the =comments= table, posted under a
+  lesson by anyone who can see it. Course ratings are stars only, no text.
+- "Question" is already taken: a Quiz has =quiz_questions=.
+- The Instructor's "Unanswered Questions" queue treats *every* top-level comment
+  as a question. It counts as answered once the course's Instructor or a
+  Platform Admin has a live (not deleted) reply under it.
+
+** DONE Q11 Lesson Comment as the umbrella term
+- *Lesson Comment* :: a message someone posts under a lesson, visible to
+  everyone on that lesson. It is either a Lesson Question or a Lesson Reply.
+  /Avoid/: Comment (on its own), Post, Message.
+Accept?
+
+*** Recommendation
+Yes. The "Lesson" prefix rules out confusion with a future comment elsewhere
+(e.g. on a course), and the rule "either a Lesson Question or a Lesson Reply"
+says there is no third kind.
+
+*** Answer
+OK
+
+** DONE Q12 Lesson Question: is every top-level Lesson Comment one?
+- *Lesson Question* :: a Lesson Comment that starts a thread under a lesson. It
+  waits in the Instructor's queue until the course's Instructor or a Platform
+  Admin replies. /Avoid/: Question (on its own, collides with Quiz Question),
+  Thread, Top-level comment.
+This matches the code: every top-level Lesson Comment is a Lesson Question, even
+"Great lesson!". The alternative (only some are questions, marked by the author)
+would be new product work. Accept the code's meaning?
+
+*** Recommendation
+Yes, every thread opener is a Lesson Question. Marking is out of scope.
+
+*** Answer
+OK
+
+** DONE Q13 Lesson Reply and Answered
+- *Lesson Reply* :: a Lesson Comment posted under a Lesson Question. Replies go
+  one level deep: nobody replies to a Lesson Reply. /Avoid/: Answer, Response,
+  Child comment.
+- *Answered Lesson Question* :: a Lesson Question with a live Lesson Reply from
+  the course's Instructor or a Platform Admin. A Student's Lesson Reply does not
+  answer it.
+Accept both?
+
+*** Recommendation
+Yes. With these, the first-set types read: "new Lesson Question, to the
+Instructor" and "new Lesson Reply, to the author of the Lesson Question".
+
+*** Answer
+OK
+
+** DONE Q14 Quiz Question
+Add *Quiz Question* :: one question in a lesson's Quiz. /Avoid/: Question (on
+its own). It isn't a Notification term, but it makes Lesson Question
+unambiguous. Accept?
+
+*** Recommendation
+Yes, add it with the others.
+
+*** Answer
+yes file:../GLOSSARY.md
+
+* Summary
+- Q1 :: First set of four types, chosen by "someone is waiting on another
+  person's action".
+- Q2 :: Standing rule: the person who acted is never notified about their own
+  action.
+- Q3 :: Ships: Refund Request decided (approved or declined, with decision
+  note), to the buyer.
+- Q4 :: Ships: new Open Refund Request, to every Platform Admin; each copy stays
+  until read.
+- Q5 :: Later: Refund issued / Refund failed, waiting on the money side of
+  Refunds; must stay tracked.
+- Q6 :: Ships: new Lesson Question, to the course's Instructor.
+- Q7 :: Ships: new Lesson Reply, to the author of the Lesson Question only.
+- Q8 :: Later: Seat claimed, to the Team Admin.
+- Q9 :: Edits and deletions never create a Notification.
+- Q10-Q14 :: Glossary: Lesson Comment, Lesson Question, Lesson Reply, Answered
+  Lesson Question, Quiz Question.

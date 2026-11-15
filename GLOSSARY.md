@@ -92,3 +92,30 @@ A Refund where the money couldn't be sent. The Refund Request stays approved, be
 **Watch Limit**:
 The amount of Watched time on a course past which a Student can no longer get a Refund, because they've had the course.
 _Avoid_: Watch cap, Viewing threshold
+
+### Lessons
+
+**Lesson Comment**:
+A message someone posts under a lesson, visible to everyone on that lesson. It is either a Lesson Question or a Lesson Reply; there is no third kind.
+_Avoid_: Comment (on its own), Post, Message
+
+**Lesson Question**:
+A Lesson Comment that starts a thread under a lesson. Every thread opener is one, whatever it says. It waits for the Instructor until it is answered.
+_Avoid_: Question (on its own), Thread, Top-level comment
+
+**Lesson Reply**:
+A Lesson Comment posted under a Lesson Question. Replies go one level deep: nobody replies to a Lesson Reply.
+_Avoid_: Answer, Response, Child comment
+
+**Answered Lesson Question**:
+A Lesson Question with a Lesson Reply, not deleted, from the course's Instructor or a Platform Admin. A Student's Lesson Reply does not answer it.
+
+**Quiz Question**:
+One question in a lesson's Quiz.
+_Avoid_: Question (on its own)
+
+### Notifications
+
+**Notification**:
+A message Cadence shows a person inside the app about something that happened that concerns them. It stays until they deal with it.
+_Avoid_: Alert, Toast (a toast is brief feedback on the person's own action, not a Notification)
