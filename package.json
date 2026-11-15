@@ -55,6 +55,7 @@
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.14.0",
     "@clack/prompts": "^1.7.0",
+    "@knocklabs/agent-toolkit": "^0.5.8",
     "@knocklabs/cli": "^1.6.2",
     "@knocklabs/mgmt": "^0.46.1",
     "@react-router/dev": "8.3.0",

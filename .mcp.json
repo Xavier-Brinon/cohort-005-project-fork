@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "knock": {
+      "command": "node",
+      "args": [
+        "--env-file-if-exists=.env",
+        "node_modules/@knocklabs/agent-toolkit/dist/modelcontextprotocol/local-server.js",
+        "--environment",
+        "development",
+        "--tools",
+        "workflows.*"
+      ]
+    }
+  }
+}
