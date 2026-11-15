@@ -661,7 +661,9 @@ describe("refund-request-opened Notifications", () => {
     // 28 words fill 139 characters, then an ellipsis makes 140.
     const expected = `${"word ".repeat(28).trimEnd()}…`;
     expect(expected).toHaveLength(140);
-    expect(notifier.sent[0].data).toMatchObject({ reasonExcerpt: expected });
+    expect(notifier.sent[0]).toMatchObject({
+      data: { reasonExcerpt: expected },
+    });
   });
 });
 

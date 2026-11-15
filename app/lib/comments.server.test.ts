@@ -6,6 +6,7 @@ import {
   deleteLessonComment,
   editLessonComment,
 } from "./comments.server";
+import { deliver, fakeNotifier } from "./notifications.server";
 
 let db: ReturnType<typeof createTestDb>;
 let base: ReturnType<typeof seedBaseData>;
@@ -288,5 +289,95 @@ describe("editLessonComment", () => {
     expect(() =>
       editLessonComment(db, 999, base.user.id, "Changed", NOW)
     ).toThrow("Comment not found");
+  });
+});
+
+describe("lesson-question-posted Notifications", () => {
+  const NOW = new Date("2026-10-06T12:00:00.000Z");
+
+  function addPlatformAdmin() {
+    return db
+      .insert(schema.users)
+      .values({
+        name: "Pat Admin",
+        email: "pat@example.com",
+        role: schema.UserRole.Admin,
+      })
+      .returning()
+      .get();
+  }
+
+  it("notifies nobody when the Instructor posts on their own lesson", async () => {
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(db, base.instructor.id, lessonId, null, "Note"),
+      notifier
+    );
+    expect(notifier.sent).toEqual([]);
+  });
+
+  it("notifies nobody when a Platform Admin posts a Lesson Question", async () => {
+    const admin = addPlatformAdmin();
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(db, admin.id, lessonId, null, "Heads up"),
+      notifier
+    );
+    expect(notifier.sent).toEqual([]);
+  });
+
+  it("notifies the course's Instructor when a Student posts a Lesson Question", async () => {
+    const notifier = fakeNotifier();
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      `How do   generics\nwork? ${"x".repeat(200)}`
+    );
+    await deliver(question, notifier);
+
+    expect(notifier.sent).toEqual([
+      {
+        type: "lesson-question-posted",
+        actor: { id: base.user.id, name: "Test User" },
+        recipients: [{ id: base.instructor.id, name: "Test Instructor" }],
+        data: {
+          lessonQuestionId: question.id,
+          authorName: "Test User",
+          courseTitle: "Test Course",
+          lessonTitle: "Lesson 1",
+          excerpt: `How do generics work? ${"x".repeat(117)}…`,
+          url: "/instructor/questions",
+        },
+      },
+    ]);
+  });
+
+  it("creates no Notification when a Lesson Question is edited or deleted", () => {
+    const question = createLessonComment(
+      db,
+      base.user.id,
+      lessonId,
+      null,
+      "Why?"
+    );
+    const edited = editLessonComment(
+      db,
+      question.id,
+      base.user.id,
+      "Why not?",
+      NOW
+    );
+    const deleted = deleteLessonComment(
+      db,
+      question.id,
+      base.user.id,
+      false,
+      NOW
+    );
+
+    expect(edited).not.toHaveProperty("notify");
+    expect(deleted).not.toHaveProperty("notify");
   });
 });

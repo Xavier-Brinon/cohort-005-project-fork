@@ -16,7 +16,11 @@ knock.json                      # { "knockDir": ".knock" }
 │   ├── workflow.json           # steps, channel, action URL
 │   └── in_app_feed_1/
 │       └── markdown_body.md    # the template (Liquid)
-└── refund-request-decided/     # branches on data.decision; note only when set
+├── refund-request-decided/     # branches on data.decision; note only when set
+│   ├── workflow.json
+│   └── in_app_feed_1/
+│       └── markdown_body.md
+└── lesson-question-posted/
     ├── workflow.json
     └── in_app_feed_1/
         └── markdown_body.md

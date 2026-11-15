@@ -37,6 +37,14 @@ export type NotificationData = {
     purchaseKind: PurchaseKind;
     url: string;
   };
+  "lesson-question-posted": {
+    lessonQuestionId: number;
+    authorName: string;
+    courseTitle: string;
+    lessonTitle: string;
+    excerpt: string;
+    url: string;
+  };
 };
 
 export type NotificationType = keyof NotificationData;
@@ -45,6 +53,7 @@ export type NotificationType = keyof NotificationData;
 // find every Notification about one subject once it is dealt with elsewhere.
 const SUBJECT_KEYS = {
   "refund-request-opened": "refundRequestId",
+  "lesson-question-posted": "lessonQuestionId",
 } as const satisfies {
   [T in NotificationType]?: keyof NotificationData[T];
 };

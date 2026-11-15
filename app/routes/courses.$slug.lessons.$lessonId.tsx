@@ -16,6 +16,7 @@ import {
   editLessonComment,
   findLessonComment,
 } from "~/lib/comments.server";
+import { deliver } from "~/lib/notifications.server";
 import {
   categories,
   comments,
@@ -813,13 +814,16 @@ export async function action({ params, request }: Route.ActionArgs) {
         if (!parsed.success) {
           return { ok: false, error: "Enter a comment before posting." };
         }
-        createLessonComment(
+        const comment = createLessonComment(
           db,
           currentUserId,
           lessonId,
           parsed.data.parentId ?? null,
           parsed.data.body
         );
+        // The Lesson Comment is saved; a Notification failure is logged,
+        // never thrown.
+        await deliver(comment);
         return { ok: true };
       }
 
