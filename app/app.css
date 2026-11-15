@@ -130,6 +130,59 @@
   }
 }
 
+/* Notification bell and popover (Knock's prebuilt UI).
+   Restyled only through Knock's --rnf-* variables, mapped to Cadence tokens.
+   Knock stays in its light colour mode; the tokens follow .dark, so the
+   popover follows Cadence's theme. */
+.cadence-knock {
+  --rnf-font-family-sanserif: inherit;
+  --rnf-color-white: var(--popover);
+  --rnf-color-gray-100: var(--border);
+  --rnf-color-gray-200: var(--border);
+  --rnf-color-gray-300: var(--muted-foreground);
+  --rnf-color-gray-400: var(--muted-foreground);
+  --rnf-color-gray-500: var(--muted-foreground);
+  --rnf-color-gray-600: var(--muted-foreground);
+  --rnf-color-gray-700: var(--foreground);
+  --rnf-color-gray-800: var(--foreground);
+  --rnf-color-gray-900: var(--popover-foreground);
+  --rnf-color-brand-500: var(--primary);
+  --rnf-color-brand-700: var(--primary);
+  --rnf-color-brand-900: var(--primary);
+  --rnf-border-radius-sm: calc(var(--radius) - 4px);
+  --rnf-border-radius-md: calc(var(--radius) - 2px);
+  --rnf-border-radius-lg: var(--radius);
+  --rnf-button-border-radius: calc(var(--radius) - 2px);
+  --rnf-button-primary-text-color: var(--primary-foreground);
+  --rnf-button-secondary-bg-color: var(--secondary);
+  --rnf-button-secondary-border-color: var(--border);
+  --rnf-button-secondary-hover-bg-color: var(--accent);
+  --rnf-button-secondary-text-color: var(--secondary-foreground);
+  --rnf-avatar-bg-color: var(--muted);
+  --rnf-avatar-initials-color: var(--muted-foreground);
+  --rnf-notification-feed-popover-bg-color: var(--popover);
+  --rnf-notification-feed-popover-border-radius: var(--radius);
+  --rnf-notification-feed-popover-shadow-color: oklch(0 0 0 / 20%);
+  /* The first shadow draws a hairline edge, which the dark theme needs. */
+  --rnf-notification-feed-popover-shadow: drop-shadow(0 0 1px var(--ring))
+    drop-shadow(0 5px 15px var(--rnf-notification-feed-popover-shadow-color));
+  --rnf-notification-cell-content-color: var(--popover-foreground);
+  --rnf-notification-cell-border-bottom-color: var(--border);
+  --rnf-notification-cell-active-bg-color: var(--accent);
+  --rnf-notification-cell-unread-dot-bg-color: var(--primary);
+  --rnf-notification-cell-unread-dot-border-color: var(--primary);
+  --rnf-message-cell-hover-bg-color: var(--accent);
+  --rnf-archive-notification-btn-bg-color: var(--muted-foreground);
+  --rnf-archive-notification-btn-bg-color-active: var(--foreground);
+  --rnf-unseen-badge-bg-color: var(--destructive);
+  --rnf-unread-badge-bg-color: var(--destructive);
+}
+
+/* The badge count reads white on the destructive badge in both themes. */
+.cadence-knock .rnf-unseen-badge {
+  --rnf-color-white: oklch(1 0 0);
+}
+
 /* Navigation loading bar */
 @keyframes loading-bar-shimmer {
   0% {
