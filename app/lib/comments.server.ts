@@ -82,13 +82,17 @@ export function createLessonComment(
     .returning()
     .get();
 
-  // Notification intents for `deliver`, to hand over after the write.
+  // Notification intents for `deliver`, to hand over after the write. A
+  // Lesson Question's Notification was already marked read when it was
+  // deleted, so answering it afterwards marks nothing.
   const notify: NotifyIntent[] = parent
     ? lessonReplyPosted(db, comment, parent)
     : lessonQuestionPosted(db, comment);
   const markRead: MarkReadIntent[] =
-    parentId !== null && isAnswerer(db, authorId, lessonId)
-      ? [{ type: "lesson-question-posted", subjectId: parentId }]
+    parent &&
+    parent.deletedAt === null &&
+    isAnswerer(db, authorId, lessonId)
+      ? [{ type: "lesson-question-posted", subjectId: parent.id }]
       : [];
 
   return { ...comment, notify, markRead };

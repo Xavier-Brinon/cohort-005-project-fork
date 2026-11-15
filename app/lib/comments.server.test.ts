@@ -437,6 +437,23 @@ describe("marking a lesson-question-posted Notification read", () => {
     expect(notifier.marked).toEqual([]);
   });
 
+  it("marks nothing when the Instructor answers a Lesson Question already deleted", async () => {
+    const question = postQuestion();
+    deleteLessonComment(db, question.id, base.user.id, false, NOW);
+    const notifier = fakeNotifier();
+    await deliver(
+      createLessonComment(
+        db,
+        base.instructor.id,
+        lessonId,
+        question.id,
+        "Because."
+      ),
+      notifier
+    );
+    expect(notifier.marked).toEqual([]);
+  });
+
   it("marks nothing when the answering Lesson Reply is deleted", async () => {
     const question = postQuestion();
     const answer = createLessonComment(
