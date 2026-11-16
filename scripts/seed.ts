@@ -2070,6 +2070,28 @@ This course is still in draft while the cluster examples are rewritten against t
 
   console.log(`Created ${countRows(schema.lessonProgress)} lesson progress records.`);
 
+  // ─── Bookmarks and Notes ───
+  // Emma flagged two course 1 lessons to revisit and kept a Note on one.
+  db.insert(schema.bookmarks)
+    .values([
+      { userId: students[0].id, lessonId: course1LessonIds[2], createdAt: daysAgo(45) },
+      { userId: students[0].id, lessonId: course1LessonIds[9], createdAt: daysAgo(38) },
+    ])
+    .run();
+  db.insert(schema.notes)
+    .values({
+      userId: students[0].id,
+      lessonId: course1LessonIds[2],
+      body: "Re-watch the part on union types.\n# and * stay as typed: plain text.",
+      createdAt: daysAgo(45),
+      updatedAt: daysAgo(40),
+    })
+    .run();
+
+  console.log(
+    `Created ${countRows(schema.bookmarks)} bookmarks and ${countRows(schema.notes)} notes.`
+  );
+
   // ─── Quiz Attempts ───
 
   // Helper to record a quiz attempt with answers
