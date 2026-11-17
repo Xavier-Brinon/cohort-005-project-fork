@@ -43,15 +43,17 @@ type Seat = typeof coupons.$inferSelect;
 
 // The fourteen-day window is counted in whole days, not hours — someone who
 // buys at 23:00 should still get the whole of their fourteenth day.
+//
+// Days are UTC days, the same days as the date prefix of the ISO timestamps we
+// store. Reading the server's local zone would make the answer depend on where
+// the process happens to run, and disagree with analytics' UTC day buckets.
 export function calendarDay(when: Date): string {
-  const month = String(when.getMonth() + 1).padStart(2, "0");
-  const day = String(when.getDate()).padStart(2, "0");
-  return `${when.getFullYear()}-${month}-${day}`;
+  return when.toISOString().slice(0, 10);
 }
 
 export function lastDayOfWindow(purchasedAtIso: string): string {
   const deadline = new Date(purchasedAtIso);
-  deadline.setDate(deadline.getDate() + REFUND_WINDOW_DAYS);
+  deadline.setUTCDate(deadline.getUTCDate() + REFUND_WINDOW_DAYS);
   return calendarDay(deadline);
 }
 
