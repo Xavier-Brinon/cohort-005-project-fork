@@ -2,9 +2,8 @@ import { Link, isRouteErrorResponse, useSearchParams } from "react-router";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { Route } from "./+types/instructor.analytics";
 import { requireInstructorOrAdmin } from "~/lib/access.server";
-import { db } from "~/db";
 import {
-  getInstructorAnalytics,
+  loadInstructorAnalytics,
   type CourseCountryRevenue,
   type CourseFunnel,
   type CourseProgressSummary,
@@ -12,7 +11,7 @@ import {
   type QuizPassRate,
   type RefundExposure,
   type RevenueSeries,
-} from "~/lib/instructor-analytics.server";
+} from "~/modules/instructor-analytics/index.server";
 import {
   ANALYTICS_RANGES,
   PLATFORM_FEE_PERCENT,
@@ -52,11 +51,11 @@ import { AlertTriangle, Rocket } from "lucide-react";
 // Admins additionally get an instructor picker. With none picked the service
 // receives a null instructor, meaning platform-wide.
 //
-// The figures come from getInstructorAnalytics. This loader only supplies the
-// live database, the signed-in viewer and the clock.
+// The figures come from the instructor-analytics module. This loader only
+// checks who is signed in and hands over the page's query.
 export async function loader({ request, url }: Route.LoaderArgs) {
   const viewer = await requireInstructorOrAdmin(request);
-  return getInstructorAnalytics(db, viewer, url.searchParams, new Date());
+  return loadInstructorAnalytics(viewer, url.searchParams);
 }
 
 const chartConfig = {

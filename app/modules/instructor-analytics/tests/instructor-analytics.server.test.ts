@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { createTestDb, seedBaseData, type TestDb } from "~/test/setup";
 import * as schema from "~/db/schema";
 import { markdown } from "~/lib/text";
-import { getInstructorAnalytics } from "./instructor-analytics.server";
+import { getInstructorAnalytics } from "../analytics.server";
 
 const NOW = new Date("2026-06-15T12:00:00.000Z");
 
