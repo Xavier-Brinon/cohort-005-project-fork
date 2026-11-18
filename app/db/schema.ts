@@ -10,39 +10,48 @@ import {
 
 import type { Markdown, PlainText } from "~/lib/text";
 
-export enum UserRole {
-  Student = "student",
-  Instructor = "instructor",
-  Admin = "admin",
-}
+// Const objects rather than enums: node strips types but cannot run an enum.
+export const UserRole = {
+  Student: "student",
+  Instructor: "instructor",
+  Admin: "admin",
+} as const;
+export type UserRole = (typeof UserRole)[keyof typeof UserRole];
 
-export enum CourseStatus {
-  Draft = "draft",
-  Published = "published",
-  Archived = "archived",
-}
+export const CourseStatus = {
+  Draft: "draft",
+  Published: "published",
+  Archived: "archived",
+} as const;
+export type CourseStatus = (typeof CourseStatus)[keyof typeof CourseStatus];
 
-export enum LessonProgressStatus {
-  NotStarted = "not_started",
-  InProgress = "in_progress",
-  Completed = "completed",
-}
+export const LessonProgressStatus = {
+  NotStarted: "not_started",
+  InProgress: "in_progress",
+  Completed: "completed",
+} as const;
+export type LessonProgressStatus =
+  (typeof LessonProgressStatus)[keyof typeof LessonProgressStatus];
 
-export enum QuestionType {
-  MultipleChoice = "multiple_choice",
-  TrueFalse = "true_false",
-}
+export const QuestionType = {
+  MultipleChoice: "multiple_choice",
+  TrueFalse: "true_false",
+} as const;
+export type QuestionType = (typeof QuestionType)[keyof typeof QuestionType];
 
-export enum RefundStatus {
-  Open = "open",
-  Approved = "approved",
-  Declined = "declined",
-}
+export const RefundStatus = {
+  Open: "open",
+  Approved: "approved",
+  Declined: "declined",
+} as const;
+export type RefundStatus = (typeof RefundStatus)[keyof typeof RefundStatus];
 
-export enum TeamMemberRole {
-  Admin = "admin",
-  Member = "member",
-}
+export const TeamMemberRole = {
+  Admin: "admin",
+  Member: "member",
+} as const;
+export type TeamMemberRole =
+  (typeof TeamMemberRole)[keyof typeof TeamMemberRole];
 
 // ─── Tables ───
 

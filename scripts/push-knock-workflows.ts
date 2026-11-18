@@ -8,7 +8,7 @@
 //   npm run knock:push-workflows -- --promote production  # then promote
 //
 // Needs KNOCK_SERVICE_TOKEN (Dashboard → account settings → Service tokens)
-// and KNOCK_FEED_CHANNEL_ID in .env. Runs under tsx, so it loads .env itself.
+// and KNOCK_FEED_CHANNEL_ID in .env. Runs under node, so it loads .env itself.
 
 import { existsSync } from "node:fs";
 import path from "node:path";

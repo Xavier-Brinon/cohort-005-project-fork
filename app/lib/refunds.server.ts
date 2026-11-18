@@ -804,7 +804,7 @@ export async function declineRefundRequest(
 function buildDecisionEmail(
   db: Queryable,
   purchase: Purchase,
-  decision: RefundStatus.Approved | RefundStatus.Declined,
+  decision: typeof RefundStatus.Approved | typeof RefundStatus.Declined,
   note: string | null
 ): Email {
   const buyer = db

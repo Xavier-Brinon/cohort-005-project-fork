@@ -5,7 +5,7 @@
 //   npm run knock:sync-users              # every user in data.db
 //   npm run knock:sync-users -- --user 12 # just user 12
 //
-// Runs under tsx, not Vite, so it loads .env itself.
+// Runs under node, not Vite, so it loads .env itself.
 
 import { existsSync } from "node:fs";
 import path from "node:path";
