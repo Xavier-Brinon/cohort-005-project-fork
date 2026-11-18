@@ -1,6 +1,6 @@
 ## Verification checks
 
-Run `node --run check` before you report a change as complete; `node --run format` fixes formatting failures.
+Run `node --run check` before you report a change as complete; `node --run format` fixes formatting failures. After a change to `app/`, also run `node --run test:mutation`.
 
 Fix a lint failure in the code. `oxlint-suppressions.json`, `boolean-names-suppressions.json` and `.dependency-cruiser-known-violations.json` only shrink: after fixing an old violation, run `node --run lint:prune` or `node --run lint:boundaries:baseline`.
 
