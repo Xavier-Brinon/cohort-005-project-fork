@@ -1,7 +1,8 @@
 import { db } from "~/db";
+
 import {
-  getInstructorAnalytics,
   type AnalyticsViewer,
+  getInstructorAnalytics,
 } from "./lib/instructor-analytics.server";
 
 // Entry point: the instructor analytics page's data, read from the live

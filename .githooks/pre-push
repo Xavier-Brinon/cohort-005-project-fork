@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs every automated check from CODING_STANDARDS.md before a push.
+# Installed by `npm run prepare` (git config core.hooksPath .githooks).
+# `node --run` needs no package manager, so the hook works with npm or aube.
+set -e
+node --run check

@@ -1,26 +1,28 @@
-import { Link, useFetcher, redirect } from "react-router";
+import { eq } from "drizzle-orm";
+import { AlertCircle, CheckCircle2, Globe, Ticket } from "lucide-react";
 import { useEffect } from "react";
+import { Link, redirect, useFetcher } from "react-router";
+import { data } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { Route } from "./+types/redeem.$code";
-import { getCurrentUserId } from "~/lib/session";
+
+import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
+import { db } from "~/db";
+import { coupons, courses, purchases } from "~/db/schema";
 import { resolveCountry } from "~/lib/country.server";
-import { parseParams, parseFormData } from "~/lib/validation";
-import { getSeatAvailability } from "~/lib/refunds.server";
 import { isEnrolled } from "~/lib/enrollments.server";
 import { defaultNotifications } from "~/lib/notifications.server";
+import { getSeatAvailability } from "~/lib/refunds.server";
 import {
   claimSeat,
   SEAT_ON_HOLD,
   SEAT_REFUNDED,
 } from "~/lib/seat-claims.server";
-import { Card, CardContent } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Ticket, AlertCircle, CheckCircle2, Globe } from "lucide-react";
-import { data } from "react-router";
-import { db } from "~/db";
-import { purchases, coupons, courses } from "~/db/schema";
-import { eq } from "drizzle-orm";
+import { getCurrentUserId } from "~/lib/session";
+import { parseFormData, parseParams } from "~/lib/validation";
+
+import type { Route } from "./+types/redeem.$code";
 
 function getCourseById(id: number) {
   return db.select().from(courses).where(eq(courses.id, id)).get();
@@ -162,7 +164,10 @@ export default function Redeem({
 
   // Determine which state to show
   const canRedeem =
-    !alreadyRedeemed && !alreadyEnrolled && !countryMismatch && !unavailableReason;
+    !alreadyRedeemed &&
+    !alreadyEnrolled &&
+    !countryMismatch &&
+    !unavailableReason;
 
   return (
     <div className="mx-auto max-w-2xl p-6 lg:p-8">

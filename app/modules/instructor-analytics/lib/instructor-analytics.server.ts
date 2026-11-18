@@ -14,35 +14,32 @@ import {
   sum,
 } from "drizzle-orm";
 import { alias, type SQLiteColumn } from "drizzle-orm/sqlite-core";
+
 import {
-  CourseStatus,
-  LessonProgressStatus,
-  UserRole,
   comments,
+  coupons,
   courseRatings,
   courses,
-  coupons,
+  CourseStatus,
   enrollments,
   lessonProgress,
+  LessonProgressStatus,
   lessons,
   modules,
   purchases,
   quizAttempts,
   quizzes,
+  UserRole,
   users,
 } from "~/db/schema";
 import {
+  type AnalyticsRange,
   parseAnalyticsRange,
   rangeStart,
   splitRevenue,
-  type AnalyticsRange,
 } from "~/lib/analytics";
 import { getDiscountForCountry } from "~/lib/ppp";
-import {
-  calendarDay,
-  lastDayOfWindow,
-  type Db,
-} from "~/lib/refunds.server";
+import { calendarDay, type Db, lastDayOfWindow } from "~/lib/refunds.server";
 
 // ─── Instructor Analytics data ───
 // Everything the instructor analytics page shows, read from the database.
@@ -60,31 +57,31 @@ function parseId(value: string | null): number | null {
   return value !== null && Number.isInteger(id) && id > 0 ? id : null;
 }
 
-type RevenueSummary = {
+interface RevenueSummary {
   grossCents: number;
   feeCents: number;
   netCents: number;
   purchaseCount: number;
-};
+}
 
-type RevenuePoint = {
+interface RevenuePoint {
   bucket: string;
   grossCents: number;
   netCents: number;
-};
+}
 
-export type RevenueSeries = {
+export interface RevenueSeries {
   granularity: "day" | "month";
   points: RevenuePoint[];
-};
+}
 
-type StudentRevenue = {
+interface StudentRevenue {
   userId: number;
   name: string;
   revenueCents: number;
-};
+}
 
-type TopBuyer = {
+interface TopBuyer {
   userId: number;
   name: string;
   email: string;
@@ -93,41 +90,41 @@ type TopBuyer = {
   seatsBought: number;
   seatsUnredeemed: number;
   enrolled: boolean;
-};
+}
 
-type RatingSummary = {
+interface RatingSummary {
   average: number | null;
   count: number;
-};
+}
 
-export type CourseProgressSummary = {
+export interface CourseProgressSummary {
   enrolledCount: number;
   totalLessons: number;
   averageProgressPercent: number | null;
   finishedCount: number;
-};
+}
 
-export type FunnelLesson = {
+export interface FunnelLesson {
   lessonId: number;
   title: string;
   reachedCount: number;
   dropFromPrevious: number;
-};
+}
 
-type FunnelModule = {
+interface FunnelModule {
   moduleId: number;
   title: string;
   reachedCount: number;
   dropWithin: number;
   lessons: FunnelLesson[];
-};
+}
 
-export type CourseFunnel = {
+export interface CourseFunnel {
   enrolledCount: number;
   modules: FunnelModule[];
-};
+}
 
-export type QuizPassRate = {
+export interface QuizPassRate {
   quizId: number;
   title: string;
   moduleTitle: string;
@@ -137,9 +134,9 @@ export type QuizPassRate = {
   passedCount: number;
   passRatePercent: number | null;
   averageBestScorePercent: number | null;
-};
+}
 
-type CountryRevenueRow = {
+interface CountryRevenueRow {
   country: string | null;
   purchaseCount: number;
   grossCents: number;
@@ -147,9 +144,9 @@ type CountryRevenueRow = {
   sharePercent: number;
   averagePaidCents: number;
   discountPercent: number | null;
-};
+}
 
-export type CourseCountryRevenue = {
+export interface CourseCountryRevenue {
   grossCents: number;
   netCents: number;
   purchaseCount: number;
@@ -157,7 +154,7 @@ export type CourseCountryRevenue = {
   discountedNetCents: number;
   discountedSharePercent: number;
   rows: CountryRevenueRow[];
-};
+}
 
 function scopeOn(
   dateColumn: SQLiteColumn,
@@ -785,25 +782,28 @@ function getCourseRevenueByCountry(
 // itself is the Refunds rule from refunds.server.ts, so the two can't drift.
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-type ExposedCourse = {
+interface ExposedCourse {
   courseId: number;
   title: string;
   grossCents: number;
   purchaseCount: number;
   daysLeft: number;
-};
+}
 
-export type RefundExposure = {
+export interface RefundExposure {
   grossCents: number;
   netCents: number;
   purchaseCount: number;
   sharePercent: number;
   closingTodayCount: number;
   courses: ExposedCourse[];
-};
+}
 
 /** Who is looking at the page. The caller has already checked they may. */
-export type AnalyticsViewer = { userId: number; isAdmin: boolean };
+export interface AnalyticsViewer {
+  userId: number;
+  isAdmin: boolean;
+}
 
 export type InstructorAnalytics = ReturnType<typeof getInstructorAnalytics>;
 
@@ -830,7 +830,9 @@ export function getInstructorAnalytics(
 
   // Instructors are pinned to their own figures; only an admin may look
   // elsewhere, and null means "every instructor".
-  const instructorId = isAdmin ? parseId(searchParams.get("instructor")) : userId;
+  const instructorId = isAdmin
+    ? parseId(searchParams.get("instructor"))
+    : userId;
 
   // The selector lists every course the viewer owns rather than only the ones
   // that sold: a course nobody is finishing is exactly what this tab is for.

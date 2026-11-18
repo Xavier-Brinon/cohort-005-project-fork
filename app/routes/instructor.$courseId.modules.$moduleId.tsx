@@ -1,20 +1,4 @@
-import { Link } from "react-router";
-import type { Route } from "./+types/instructor.$courseId.modules.$moduleId";
-import { getCurrentUserId } from "~/lib/session";
-import {
-  UserRole,
-  users,
-  courses,
-  categories,
-  modules,
-  lessons,
-} from "~/db/schema";
-import { db } from "~/db";
 import { eq, or } from "drizzle-orm";
-import { Card, CardContent } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
-import { UserAvatar } from "~/components/user-avatar";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -25,9 +9,27 @@ import {
   FileText,
   Video,
 } from "lucide-react";
+import { Link } from "react-router";
 import { data, isRouteErrorResponse } from "react-router";
-import { formatDuration } from "~/lib/utils";
 import { z } from "zod";
+
+import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
+import { Skeleton } from "~/components/ui/skeleton";
+import { UserAvatar } from "~/components/user-avatar";
+import { db } from "~/db";
+import {
+  categories,
+  courses,
+  lessons,
+  modules,
+  UserRole,
+  users,
+} from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+import { formatDuration } from "~/lib/utils";
+
+import type { Route } from "./+types/instructor.$courseId.modules.$moduleId";
 
 const paramsSchema = z.object({
   courseId: z.coerce.number().int(),

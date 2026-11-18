@@ -23,6 +23,21 @@ const R = PACKAGES_ROOT;
  */
 const PACKAGE_INTERNALS = `^${R}/[^/]+/[^/]+/`;
 
+// --- project rules (CODING_STANDARDS.md) ------------------------------------
+/**
+ * The database connection and its query builder. The schema is not on the
+ * list: enumerations live there, and any file may compare against them.
+ */
+const DATA_LAYER = "^app/db/index\\.ts$|node_modules/drizzle-orm/";
+/** Everything a test needs to insert rows directly: tables included. */
+const ROW_WRITES = "^app/db/|node_modules/drizzle-orm/";
+/** Code that can end up in the browser bundle (routes are split by the framework). */
+const CLIENT_CODE = "^app/(components|lib|modules)/|^app/root\\.tsx$";
+/** Files that never reach the browser. */
+const SERVER_OR_TEST = "\\.server\\.[jt]sx?$|\\.test\\.[jt]sx?$|/tests/";
+/** What must never reach the browser. */
+const SERVER_ONLY = `\\.server\\.[jt]sx?$|${DATA_LAYER}|node_modules/(better-sqlite3|@knocklabs/node)/`;
+
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
   forbidden: [
@@ -67,10 +82,50 @@ module.exports = {
     },
     {
       name: "no-circular",
-      comment: "No dependency cycles. Scope to `^${R}/` if you want to allow cycles outside packages.",
+      comment:
+        "No dependency cycles. Scope to `^${R}/` if you want to allow cycles outside packages.",
       severity: "error",
       from: {},
       to: { circular: true },
+    },
+
+    // --- Data ownership (CODING_STANDARDS.md) ---------------------------------
+    // Existing violations live in .dependency-cruiser-known-violations.json,
+    // which `npm run lint:boundaries` ignores. Move a route's data behind a
+    // module, then run `npm run lint:boundaries:baseline` to shrink the file.
+    {
+      name: "routes-ask-modules-for-data",
+      comment:
+        "A route does not query data a module owns: it asks the module, and does not import ~/db or drizzle-orm itself.",
+      severity: "error",
+      from: { path: "^app/routes/" },
+      to: { path: DATA_LAYER },
+    },
+    {
+      name: "module-tests-arrange-through-module",
+      comment:
+        "Test setup calls the module's own functions. When the function you need does not exist, add it to the module rather than inserting rows through ~/db or drizzle-orm.",
+      severity: "error",
+      from: { path: `^${R}/[^/]+/tests/` },
+      to: { path: ROW_WRITES },
+    },
+
+    // --- Secrets stay on the server -------------------------------------------
+    {
+      name: "client-code-imports-no-server-code",
+      comment:
+        "Code that can reach the browser bundle may not import .server files, the database, or server-only SDKs. Anything the browser can read is public.",
+      severity: "error",
+      from: { path: CLIENT_CODE, pathNot: SERVER_OR_TEST },
+      to: { path: SERVER_ONLY },
+    },
+    {
+      name: "client-code-imports-no-node-builtins",
+      comment:
+        "Code that can reach the browser bundle may not import Node built-ins (fs, process, crypto, ...).",
+      severity: "error",
+      from: { path: CLIENT_CODE, pathNot: SERVER_OR_TEST },
+      to: { dependencyTypes: ["core"] },
     },
 
     // --- Layering (optional, off by default) ----------------------------------

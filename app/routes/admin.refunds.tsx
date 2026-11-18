@@ -1,32 +1,32 @@
+import { eq } from "drizzle-orm";
+import { AlertTriangle, Receipt } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFetcher, useSearchParams } from "react-router";
+import { data, isRouteErrorResponse, Link } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { Route } from "./+types/admin.refunds";
-import { getCurrentUserId } from "~/lib/session";
-import { parseFormData } from "~/lib/validation";
-import { RefundStatus, UserRole, users } from "~/db/schema";
-import { db } from "~/db";
-import { eq } from "drizzle-orm";
-import { Card, CardContent } from "~/components/ui/card";
+
 import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
 import { Textarea } from "~/components/ui/textarea";
-import { AlertTriangle, Receipt } from "lucide-react";
-import { data, isRouteErrorResponse, Link } from "react-router";
-import { formatPrice } from "~/lib/utils";
+import { db } from "~/db";
+import { RefundStatus, UserRole, users } from "~/db/schema";
+import { sendEmail } from "~/lib/mailer.server";
+import { defaultNotifications } from "~/lib/notifications.server";
+import { RULE_BREAK_LABELS } from "~/lib/refund-rules";
 import {
   approveRefundRequest,
   declineRefundRequest,
   listRefundRequestsForReview,
   type RefundRequestForReview,
 } from "~/lib/refunds.server";
-import { RULE_BREAK_LABELS } from "~/lib/refund-rules";
-import { sendEmail } from "~/lib/mailer.server";
-import { defaultNotifications } from "~/lib/notifications.server";
+import { getCurrentUserId } from "~/lib/session";
+import { formatPrice } from "~/lib/utils";
+import { parseFormData } from "~/lib/validation";
 
-const refundFilterSchema = z
-  .nativeEnum(RefundStatus)
-  .catch(RefundStatus.Open);
+import type { Route } from "./+types/admin.refunds";
+
+const refundFilterSchema = z.nativeEnum(RefundStatus).catch(RefundStatus.Open);
 
 const adminRefundActionSchema = z.discriminatedUnion("intent", [
   z.object({
@@ -214,11 +214,7 @@ function formatHours(seconds: number) {
   return `${(seconds / 3600).toFixed(1)}h`;
 }
 
-function Figures({
-  refundRequest,
-}: {
-  refundRequest: RefundRequestForReview;
-}) {
+function Figures({ refundRequest }: { refundRequest: RefundRequestForReview }) {
   const { figures } = refundRequest;
 
   const items =

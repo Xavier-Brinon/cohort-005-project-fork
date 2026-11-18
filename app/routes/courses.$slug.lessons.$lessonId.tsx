@@ -1,73 +1,75 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link, useFetcher, useNavigate } from "react-router";
-import { toast } from "sonner";
-import type { Route } from "./+types/courses.$slug.lessons.$lessonId";
-import { getCurrentUserId } from "~/lib/session";
-import { getAccess, requireContentAccess } from "~/lib/access.server";
-import { renderComment } from "~/lib/comment-markdown.server";
-import { markdown, type Markdown } from "~/lib/text";
-import {
-  createComment,
-  deleteComment,
-  editComment,
-} from "~/lib/comments.server";
-import { defaultNotifications } from "~/lib/notifications.server";
-import { isBookmarked, toggleBookmark } from "~/lib/bookmarks.server";
-import { getNote, saveNote } from "~/lib/notes.server";
-import { MAX_NOTE_LENGTH } from "~/lib/notes";
-import {
-  CommentThread,
-  type RenderedComment,
-} from "~/components/comment-thread";
-import { db } from "~/db";
-import {
-  categories,
-  comments,
-  courses,
-  lessonProgress,
-  lessons,
-  modules,
-  quizzes,
-  quizQuestions,
-  quizOptions,
-  quizAttempts,
-  quizAnswers,
-  users,
-  videoWatchEvents,
-  LessonProgressStatus,
-  UserRole,
-} from "~/db/schema";
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
-import { Button } from "~/components/ui/button";
-import { Card, CardContent } from "~/components/ui/card";
-import { Textarea } from "~/components/ui/textarea";
 import {
   AlertTriangle,
+  Bookmark,
+  BookmarkCheck,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Circle,
   Clock,
-  Bookmark,
-  BookmarkCheck,
   Github,
   HelpCircle,
-  NotebookPen,
   MapPin,
+  NotebookPen,
   PlayCircle,
-  ShieldAlert,
-  XCircle,
-  Trophy,
   RotateCcw,
+  ShieldAlert,
+  Trophy,
+  XCircle,
 } from "lucide-react";
-import { cn, formatDuration, formatRelativeTime } from "~/lib/utils";
-import { renderMarkdown } from "~/lib/markdown.server";
-import { YouTubePlayer } from "~/components/youtube-player";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useFetcher, useNavigate } from "react-router";
 import { data, isRouteErrorResponse } from "react-router";
+import { toast } from "sonner";
 import { z } from "zod";
+
+import {
+  CommentThread,
+  type RenderedComment,
+} from "~/components/comment-thread";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
+import { Textarea } from "~/components/ui/textarea";
+import { YouTubePlayer } from "~/components/youtube-player";
+import { db } from "~/db";
+import {
+  categories,
+  comments,
+  courses,
+  lessonProgress,
+  LessonProgressStatus,
+  lessons,
+  modules,
+  quizAnswers,
+  quizAttempts,
+  quizOptions,
+  quizQuestions,
+  quizzes,
+  UserRole,
+  users,
+  videoWatchEvents,
+} from "~/db/schema";
+import { getAccess, requireContentAccess } from "~/lib/access.server";
+import { isBookmarked, toggleBookmark } from "~/lib/bookmarks.server";
+import { renderComment } from "~/lib/comment-markdown.server";
+import {
+  createComment,
+  deleteComment,
+  editComment,
+} from "~/lib/comments.server";
+import { renderMarkdown } from "~/lib/markdown.server";
+import { MAX_NOTE_LENGTH } from "~/lib/notes";
+import { getNote, saveNote } from "~/lib/notes.server";
+import { defaultNotifications } from "~/lib/notifications.server";
 import { COUNTRIES } from "~/lib/ppp";
+import { getCurrentUserId } from "~/lib/session";
+import { type Markdown, markdown } from "~/lib/text";
+import { cn, formatDuration, formatRelativeTime } from "~/lib/utils";
 import { parseFormData, parseParams } from "~/lib/validation";
+
+import type { Route } from "./+types/courses.$slug.lessons.$lessonId";
 
 const lessonParamsSchema = z.object({
   slug: z.string().min(1),
@@ -106,15 +108,15 @@ const deleteCommentSchema = z.object({
   commentId: z.coerce.number().int(),
 });
 
-type CommentAuthor = {
+interface CommentAuthor {
   id: number;
   name: string;
   avatarUrl: string | null;
   isInstructor: boolean;
   isAdmin: boolean;
-};
+}
 
-type ThreadComment = {
+interface ThreadComment {
   id: number;
   body: Markdown;
   createdAt: string;
@@ -122,7 +124,7 @@ type ThreadComment = {
   deleted: boolean;
   author: CommentAuthor;
   replies: ThreadComment[];
-};
+}
 
 function getCourseBySlug(slug: string) {
   return db.select().from(courses).where(eq(courses.slug, slug)).get();
@@ -492,7 +494,7 @@ function computeResult(userId: any, quizId: any, selectedAnswers: any): any {
       .all();
 
     let correct = 0;
-    let total = questions.length;
+    const total = questions.length;
     const questionResults: any[] = [];
 
     for (let i = 0; i < questions.length; i++) {
@@ -608,12 +610,12 @@ export function meta({ loaderData }: Route.MetaArgs) {
   return [{ title: `${title} — ${courseTitle} — Cadence` }];
 }
 
-type FlatLesson = {
+interface FlatLesson {
   id: number;
   title: string;
   moduleId: number;
   moduleTitle: string;
-};
+}
 
 function flattenCourseLessons(course: {
   modules: Array<{
@@ -675,7 +677,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let lessonStatus: string | null = null;
   let lastWatchPosition = 0;
   let watchProgress = 0;
-  let lessonProgressMap: Record<number, string> = {};
+  const lessonProgressMap: Record<number, string> = {};
 
   if (currentUserId) {
     if (enrolled) {
@@ -931,7 +933,12 @@ export async function action({ params, request }: Route.ActionArgs) {
     requireLessonInCourse(lessonId, course.id);
 
     if (intent === "toggle-bookmark") {
-      const bookmarked = toggleBookmark(db, currentUserId, lessonId, new Date());
+      const bookmarked = toggleBookmark(
+        db,
+        currentUserId,
+        lessonId,
+        new Date()
+      );
       return { ok: true, bookmarked };
     }
 

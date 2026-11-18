@@ -1,10 +1,12 @@
 import { data } from "react-router";
 import { z } from "zod";
-import type { Route } from "./+types/api.video-tracking";
-import { getCurrentUserId } from "~/lib/session";
-import { parseJsonBody } from "~/lib/validation";
+
 import { db } from "~/db";
 import { videoWatchEvents } from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+import { parseJsonBody } from "~/lib/validation";
+
+import type { Route } from "./+types/api.video-tracking";
 
 const videoTrackingSchema = z.object({
   lessonId: z.number(),
@@ -26,8 +28,7 @@ export async function action({ request }: Route.ActionArgs) {
 
   const { lessonId, eventType, positionSeconds } = parsed.data;
 
-  db
-    .insert(videoWatchEvents)
+  db.insert(videoWatchEvents)
     .values({
       userId: currentUserId,
       lessonId,

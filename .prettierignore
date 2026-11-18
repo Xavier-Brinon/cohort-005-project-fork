@@ -1,0 +1,18 @@
+# Generated: migrations and their snapshots are written by drizzle-kit.
+drizzle/
+
+# Vendored agent skills and harness config, owned upstream.
+.agents/
+.claude/
+.sandcastle/
+.grill/
+_internal/
+
+# Lockfiles.
+package-lock.json
+aube-lock.yaml
+skills-lock.json
+
+# Baselines written by the lint tools.
+eslint-suppressions.json
+.dependency-cruiser-known-violations.json

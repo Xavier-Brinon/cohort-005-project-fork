@@ -1,27 +1,36 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { alias } from "drizzle-orm/sqlite-core";
+
 import * as schema from "~/db/schema";
 import {
   coupons,
   courses,
   enrollments,
   lessonProgress,
+  LessonProgressStatus,
   lessons,
   modules,
   purchases,
   refunds,
-  users,
-  videoWatchEvents,
-  LessonProgressStatus,
   RefundStatus,
   UserRole,
+  users,
+  videoWatchEvents,
 } from "~/db/schema";
-import { formatPrice } from "~/lib/utils";
 import {
+  type Notifications,
   sendSafely,
   toNotificationPerson,
-  type Notifications,
 } from "~/lib/notifications.server";
 import {
   REFUND_COMPLETION_LIMIT,
@@ -29,6 +38,7 @@ import {
   REFUND_WINDOW_DAYS,
   type RuleBreak,
 } from "~/lib/refund-rules";
+import { formatPrice } from "~/lib/utils";
 
 // docs/adr/0001–0004 explain why Refunds work the way they do.
 
@@ -217,8 +227,7 @@ function getRefundFigures(db: Queryable, purchase: Purchase): RefundFigures {
 /** What the buyer is told when they can't raise a Refund Request. */
 const RULE_BREAK_ERRORS: Record<RuleBreak, string> = {
   window_closed: `The ${REFUND_WINDOW_DAYS}-day window has closed.`,
-  watched_too_much:
-    "You have watched too much of this course to get a refund.",
+  watched_too_much: "You have watched too much of this course to get a refund.",
   completed_too_much:
     "You have completed too much of this course to request a refund.",
   seat_claimed: "A Team Licence with a claimed Seat cannot be refunded.",
@@ -261,7 +270,11 @@ function findRuleBreaks(
 
 // ─── Raising a Refund Request ───
 
-export type Failure = { ok: false; status: 400 | 403 | 404 | 409; error: string };
+export interface Failure {
+  ok: false;
+  status: 400 | 403 | 404 | 409;
+  error: string;
+}
 
 type RefundCheck = { ok: true; purchase: Purchase } | Failure;
 
@@ -310,11 +323,11 @@ export function checkRefundRequest(
   return { ok: true, purchase };
 }
 
-export type RefundOffer = {
+export interface RefundOffer {
   purchaseId: number;
   amount: number;
   lastDayInWindow: string;
-};
+}
 
 /**
  * What the course page offers a student who wants their money back: their
@@ -350,7 +363,11 @@ export function getRefundOffer(
   };
 }
 
-export type Email = { to: string; subject: string; body: string };
+export interface Email {
+  to: string;
+  subject: string;
+  body: string;
+}
 
 export type RaiseResult =
   | { ok: true; refundRequestId: number; kind: PurchaseKind; email: Email }
@@ -477,7 +494,7 @@ function selectRefundRequests(db: Queryable) {
     .leftJoin(deciders, eq(refunds.resolvedByUserId, deciders.id));
 }
 
-export type RefundRequestForReview = {
+export interface RefundRequestForReview {
   id: number;
   status: RefundStatus;
   reason: string;
@@ -495,7 +512,7 @@ export type RefundRequestForReview = {
   figures: RefundFigures;
   ruleBreaks: RuleBreak[];
   canApprove: boolean;
-};
+}
 
 /**
  * The Refund Requests a Platform Admin reviews, oldest first. The figures are
@@ -542,7 +559,8 @@ export function listRefundRequestsForReview(
       // A Claimed Seat belongs to another student, so the only way out of
       // that request is a decline. See docs/adr/0003.
       canApprove:
-        row.status === RefundStatus.Open && !ruleBreaks.includes("seat_claimed"),
+        row.status === RefundStatus.Open &&
+        !ruleBreaks.includes("seat_claimed"),
     };
   });
 }
@@ -850,7 +868,11 @@ async function notifyDecision(
 
   const purchase = getPurchase(db, refundRequest.purchaseId);
   if (!purchase) return;
-  const buyer = db.select().from(users).where(eq(users.id, purchase.userId)).get();
+  const buyer = db
+    .select()
+    .from(users)
+    .where(eq(users.id, purchase.userId))
+    .get();
   const course = db
     .select()
     .from(courses)

@@ -1,16 +1,11 @@
+import { and, eq } from "drizzle-orm";
 import { data } from "react-router";
-import { eq, and } from "drizzle-orm";
+
 import { db } from "~/db";
-import {
-  UserRole,
-  users,
-  courses,
-  enrollments,
-  purchases,
-} from "~/db/schema";
-import { getCurrentUserId } from "~/lib/session";
+import { courses, enrollments, purchases, UserRole, users } from "~/db/schema";
 import { resolveCountry } from "~/lib/country.server";
 import { checkPppAccess } from "~/lib/ppp";
+import { getCurrentUserId } from "~/lib/session";
 
 function getUserById(id: number) {
   return db.select().from(users).where(eq(users.id, id)).get();
@@ -46,7 +41,7 @@ function findPurchase(userId: number, courseId: number) {
 // signed-out and unenrolled visitors rather than erroring. The require* wrappers
 // are built on it for the routes that should just reject.
 
-export type Access = {
+export interface Access {
   userId: number | null;
   user: ReturnType<typeof getUserById>;
   isAdmin: boolean;
@@ -63,7 +58,7 @@ export type Access = {
    * Staff always can. Students need an enrollment that isn't PPP-blocked.
    */
   canViewContent: boolean;
-};
+}
 
 const SIGNED_OUT: Access = {
   userId: null,

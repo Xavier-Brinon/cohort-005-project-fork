@@ -1,0 +1,878 @@
+{
+  "app/components/comment-thread.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 6
+    },
+    "eslint-comments/require-description": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "react/no-danger": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/components/course-image.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    }
+  },
+  "app/components/dev-ui.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/components/monaco-markdown-editor.tsx": {
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/components/notification-feed.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 4
+    },
+    "jsx-a11y/click-events-have-key-events": {
+      "count": 1
+    },
+    "jsx-a11y/no-static-element-interactions": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 3
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    }
+  },
+  "app/components/sidebar.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/components/star-rating.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    },
+    "jsx-a11y/no-static-element-interactions": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/components/ui/button.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    }
+  },
+  "app/components/ui/chart.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 5
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "react/no-danger": {
+      "count": 1
+    }
+  },
+  "app/components/youtube-player.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 3
+    },
+    "jsx-a11y/label-has-associated-control": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 5
+    }
+  },
+  "app/db/index.ts": {
+    "unicorn/name-replacements": {
+      "count": 3
+    }
+  },
+  "app/lib/access.server.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    }
+  },
+  "app/lib/bookmarks.server.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/bookmarks.server.ts": {
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/lib/comment-markdown.server.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/comments.server.test.ts": {
+    "max-lines": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/comments.server.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "max-params": {
+      "count": 4
+    },
+    "unicorn/name-replacements": {
+      "count": 9
+    }
+  },
+  "app/lib/country.server.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/enrollments.server.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/enrollments.server.ts": {
+    "max-params": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 5
+    }
+  },
+  "app/lib/notes.server.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/notes.server.ts": {
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/lib/notification-feed.knock.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/lib/notification-preferences.server.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/lib/notification-preferences.server.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 3
+    },
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 3
+    }
+  },
+  "app/lib/notifications.fake.server.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/lib/notifications.knock.server.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/lib/notifications.server.ts": {
+    "no-console": {
+      "count": 4
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/lib/ppp.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "max-params": {
+      "count": 1
+    }
+  },
+  "app/lib/refunds.server.test.ts": {
+    "max-lines": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/lib/refunds.server.ts": {
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "max-params": {
+      "count": 6
+    },
+    "unicorn/name-replacements": {
+      "count": 20
+    }
+  },
+  "app/lib/seat-claims.server.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/lib/seat-claims.server.ts": {
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "max-params": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 5
+    }
+  },
+  "app/lib/session.ts": {
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/lib/utils.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 3
+    },
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 3
+    }
+  },
+  "app/lib/validation.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/modules/instructor-analytics/lib/instructor-analytics.server.ts": {
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 6
+    },
+    "max-params": {
+      "count": 8
+    },
+    "unicorn/name-replacements": {
+      "count": 11
+    }
+  },
+  "app/modules/instructor-analytics/tests/instructor-analytics.server.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/root.tsx": {
+    "react/no-danger": {
+      "count": 1
+    }
+  },
+  "app/routes/admin.categories.tsx": {
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "react-hooks/exhaustive-deps": {
+      "count": 1
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 10
+    }
+  },
+  "app/routes/admin.courses.tsx": {
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/admin.refunds.tsx": {
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/admin.users.tsx": {
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "max-params": {
+      "count": 1
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 5
+    }
+  },
+  "app/routes/api.set-dev-country.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/courses.$slug.$moduleId.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 3
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/routes/courses.$slug.lessons.$lessonId.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 19
+    },
+    "@typescript-eslint/no-explicit-any": {
+      "count": 7
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 3
+    },
+    "max-depth": {
+      "count": 7
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 9
+    },
+    "no-console": {
+      "count": 3
+    },
+    "react/no-danger": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 15
+    }
+  },
+  "app/routes/courses.$slug.purchase.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 2
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 3
+    },
+    "max-params": {
+      "count": 3
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/routes/courses.$slug.refund.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/courses.$slug.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 4
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 8
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 8
+    },
+    "react/no-array-index-key": {
+      "count": 2
+    },
+    "react/no-danger": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 7
+    }
+  },
+  "app/routes/courses.$slug.welcome.tsx": {
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/courses.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 7
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 5
+    },
+    "max-params": {
+      "count": 1
+    },
+    "react/no-array-index-key": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/routes/dashboard.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 5
+    },
+    "max-lines-per-function": {
+      "count": 3
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/routes/home.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/instructor.$courseId.lessons.$lessonId.quiz.tsx": {
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "jsx-a11y/label-has-associated-control": {
+      "count": 1
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 9
+    },
+    "max-params": {
+      "count": 1
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 25
+    }
+  },
+  "app/routes/instructor.$courseId.lessons.$lessonId.tsx": {
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 12
+    }
+  },
+  "app/routes/instructor.$courseId.modules.$moduleId.tsx": {
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "app/routes/instructor.$courseId.students.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 4
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/routes/instructor.$courseId.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 7
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 8
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 21
+    },
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 38
+    }
+  },
+  "app/routes/instructor.analytics.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 3
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 6
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/instructor.new.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "max-params": {
+      "count": 1
+    }
+  },
+  "app/routes/instructor.questions.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "react/no-danger": {
+      "count": 1
+    }
+  },
+  "app/routes/instructor.tsx": {
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "react/no-array-index-key": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/layout.app.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 2
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 5
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/login.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/routes/redeem.$code.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 6
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/saved.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/routes/settings.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 5
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "app/routes/signup.tsx": {
+    "max-lines-per-function": {
+      "count": 1
+    }
+  },
+  "app/routes/team.tsx": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 3
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "app/test/setup.ts": {
+    "unicorn/name-replacements": {
+      "count": 4
+    }
+  },
+  "request-logger/agents.test.ts": {
+    "max-lines": {
+      "count": 1
+    }
+  },
+  "request-logger/agents.ts": {
+    "eqeqeq": {
+      "count": 2
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 5
+    }
+  },
+  "request-logger/config.test.ts": {
+    "unicorn/name-replacements": {
+      "count": 1
+    }
+  },
+  "request-logger/config.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "request-logger/proxy.test.ts": {
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 9
+    }
+  },
+  "request-logger/proxy.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 7
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 3
+    },
+    "@typescript-eslint/use-unknown-in-catch-callback-variable": {
+      "count": 1
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 4
+    },
+    "unicorn/name-replacements": {
+      "count": 12
+    }
+  },
+  "request-logger/render.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
+  "request-logger/render.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 1
+    },
+    "@typescript-eslint/no-explicit-any": {
+      "count": 37
+    },
+    "eqeqeq": {
+      "count": 4
+    },
+    "max-depth": {
+      "count": 7
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 2
+    },
+    "unicorn/name-replacements": {
+      "count": 32
+    }
+  },
+  "scripts/push-knock-workflows.ts": {
+    "max-params": {
+      "count": 1
+    },
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  },
+  "scripts/seed.ts": {
+    "@typescript-eslint/naming-convention": {
+      "count": 3
+    },
+    "@typescript-eslint/no-non-null-assertion": {
+      "count": 2
+    },
+    "max-lines": {
+      "count": 1
+    },
+    "max-lines-per-function": {
+      "count": 3
+    },
+    "max-params": {
+      "count": 4
+    },
+    "unicorn/name-replacements": {
+      "count": 16
+    }
+  },
+  "scripts/sync-users-to-knock.ts": {
+    "unicorn/name-replacements": {
+      "count": 2
+    }
+  }
+}
