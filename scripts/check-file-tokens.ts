@@ -14,7 +14,7 @@ const SKIPPED_PATTERNS = [
   /(^|\/)aube-lock\.yaml$/,
   /(^|\/)skills-lock\.json$/,
   /^drizzle\//,
-  /^eslint-suppressions\.json$/,
+  /^oxlint-suppressions\.json$/,
   /^\.dependency-cruiser-known-violations\.json$/,
   /^(\.agents|\.claude|\.sandcastle|\.grill|_internal)\//,
 ];

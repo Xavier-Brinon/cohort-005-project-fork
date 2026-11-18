@@ -1,8 +1,9 @@
 # Coding standards
 
 `npm run check` enforces every mechanical standard; the rule comments in
-`eslint.config.ts` and `.dependency-cruiser.cjs` name the standard each one
-covers. The standards below have no check yet, so a reviewer applies them.
+`.oxlintrc.json`, `.dependency-cruiser.cjs` and `scripts/check-boolean-names.ts`
+name the standard each one covers. The standards below have no check yet, so a
+reviewer applies them.
 Each heading names the check planned to replace it; when that check lands,
 delete the rules it covers.
 
@@ -84,7 +85,7 @@ delete the rules it covers.
 
 - **Markdown and Org files stay under 500 lines.** Lockfiles, migrations,
   generated snapshots and the lint baselines are exempt.
-- **Strip trailing whitespace** in files Prettier skips.
+- **Strip trailing whitespace** in files oxfmt skips.
 - **The branch name matches the ticket.**
 - **A lockfile change matches a `package.json` change.**
 - **Commit source; generated files stay out of git.**

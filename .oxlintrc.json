@@ -1,0 +1,235 @@
+// Every rule here enforces a rule in CODING_STANDARDS.md. Existing violations
+// live in oxlint-suppressions.json; fix one, then run `npm run lint:prune` to
+// shrink the file. New code gets no suppressions. docs/check-coverage.md maps
+// each rule to the ESLint rule it replaced.
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": { "correctness": "off" },
+  "plugins": ["eslint", "typescript", "react", "import", "jsx-a11y", "vitest"],
+  "jsPlugins": [
+    {
+      "name": "eslint-comments",
+      "specifier": "@eslint-community/eslint-plugin-eslint-comments"
+    },
+    {
+      "name": "simple-import-sort",
+      "specifier": "eslint-plugin-simple-import-sort"
+    },
+    { "name": "sonarjs", "specifier": "./scripts/oxlint-plugins/sonarjs.ts" },
+    { "name": "unicorn-js", "specifier": "eslint-plugin-unicorn" }
+  ],
+  "env": { "browser": true, "node": true, "es2024": true },
+  "options": {
+    "typeAware": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "ignorePatterns": [
+    "build/**",
+    ".react-router/**",
+    "drizzle/**",
+    "public/**",
+    ".agents/**",
+    ".claude/**",
+    ".sandcastle/**",
+    ".grill/**",
+    "_internal/**",
+    ".dependency-cruiser.cjs"
+  ],
+  "rules": {
+    // Use `===`, never `==`.
+    "eslint/eqeqeq": ["error", "always"],
+    // Use `const` unless you reassign. Never `var`.
+    "eslint/prefer-const": "error",
+    "eslint/no-var": "error",
+    // Prefer arrow functions for callbacks.
+    "eslint/prefer-arrow-callback": "error",
+    // No `console.log` left in a committed file.
+    "eslint/no-console": ["error", { "allow": ["error"] }],
+    // Do not catch an error only to re-throw it unchanged.
+    "eslint/no-useless-catch": "error",
+    // Return early rather than nesting. Do not nest more than three levels.
+    "eslint/no-else-return": ["error", { "allowElseIf": false }],
+    "eslint/max-depth": ["error", 3],
+    // No more than three parameters.
+    "eslint/max-params": ["error", 3],
+    // Keep a function under fifty lines.
+    "eslint/max-lines-per-function": [
+      "error",
+      { "max": 50, "skipBlankLines": true, "skipComments": true }
+    ],
+    // Keep every file under 500 lines.
+    "eslint/max-lines": ["error", { "max": 500 }],
+
+    // Do not write `any`, and do not write `!`.
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    // Do not write a type that the compiler can infer.
+    "typescript/no-inferrable-types": "error",
+    // `interface` for object shapes; `type` only where an interface cannot
+    // express it (unions, mapped, conditional, tuple types).
+    "typescript/consistent-type-definitions": ["error", "interface"],
+    // Throw `Error`, never a string. React Router responses count: a failing
+    // loader or action throws `data(...)` or `redirect(...)`.
+    "typescript/only-throw-error": [
+      "error",
+      {
+        "allow": [
+          {
+            "from": "package",
+            "package": "react-router",
+            "name": "DataWithResponseInit"
+          },
+          { "from": "lib", "name": "Response" }
+        ]
+      }
+    ],
+    // Catch the narrowest thing you can.
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+
+    // "Name a boolean so it reads as a question" needs the type checker, which
+    // oxlint gives no JS plugin: scripts/check-boolean-names.ts checks it.
+
+    // Do not abbreviate. `id` and `url` are the standard's exceptions;
+    // `params`, `searchParams`, `props` and `ref` are names React and React
+    // Router hand us. oxlint's native unicorn plugin lacks this rule, so the
+    // ESLint plugin runs as a JS plugin under the name `unicorn-js`.
+    "unicorn-js/name-replacements": [
+      "error",
+      {
+        "checkFilenames": false,
+        "allowList": {
+          "id": true,
+          "ID": true,
+          "url": true,
+          "URL": true,
+          "params": true,
+          "searchParams": true,
+          "setSearchParams": true,
+          "props": true,
+          "Props": true,
+          "ref": true
+        }
+      }
+    ],
+
+    // Imports are sorted: packages, then aliases, then relative.
+    "simple-import-sort/imports": [
+      "error",
+      {
+        "groups": [["^\\u0000"], ["^node:", "^@?\\w"], ["^~/"], ["^\\."]]
+      }
+    ],
+
+    // Default exports only for route modules.
+    "import/no-default-export": "error",
+
+    // Don't leave commented-out code.
+    "sonarjs/no-commented-code": "error",
+
+    // A disable comment says why.
+    "eslint-comments/require-description": [
+      "error",
+      { "ignore": ["eslint-enable"] }
+    ],
+
+    // Every item in a list gets a stable key.
+    "react/jsx-key": "error",
+    "react/no-array-index-key": "error",
+    // Set `rel="noopener noreferrer"` on every external link.
+    "react/jsx-no-target-blank": [
+      "error",
+      { "allowReferrer": false, "enforceDynamicLinks": "always" }
+    ],
+    // Escape anything a person typed before you render it as HTML.
+    "react/no-danger": "error",
+
+    // Effects declare every value they read.
+    "react/exhaustive-deps": "error",
+    // Do not put a side effect in the render path.
+    "react/purity": "error",
+    "react/globals": "error",
+    // Never mutate a value you were handed (props, state, hook arguments).
+    "react/immutability": "error",
+
+    // Every image has alt text.
+    "jsx-a11y/alt-text": "error",
+    // Every input has a label.
+    "jsx-a11y/label-has-associated-control": [
+      "error",
+      {
+        "labelComponents": ["Label"],
+        "controlComponents": ["Input", "Textarea", "Select", "Switch"],
+        "assert": "either"
+      }
+    ],
+    // Do not set a positive `tabIndex`.
+    "jsx-a11y/tabindex-no-positive": "error",
+    // Use semantic elements. The handler list is ESLint's default (focus,
+    // keyboard and mouse events); oxlint's default leaves out mouse events.
+    "jsx-a11y/no-static-element-interactions": [
+      "error",
+      {
+        "handlers": [
+          "onFocus",
+          "onBlur",
+          "onKeyDown",
+          "onKeyPress",
+          "onKeyUp",
+          "onClick",
+          "onContextMenu",
+          "onDblClick",
+          "onDoubleClick",
+          "onDrag",
+          "onDragEnd",
+          "onDragEnter",
+          "onDragExit",
+          "onDragLeave",
+          "onDragOver",
+          "onDragStart",
+          "onDrop",
+          "onMouseDown",
+          "onMouseEnter",
+          "onMouseLeave",
+          "onMouseMove",
+          "onMouseOut",
+          "onMouseOver",
+          "onMouseUp"
+        ]
+      }
+    ],
+    "jsx-a11y/click-events-have-key-events": "error",
+    // Keep the heading levels in order (content half; order needs a browser).
+    "jsx-a11y/heading-has-content": "error"
+  },
+  "overrides": [
+    // Files that a framework or tool loads by their default export, and type
+    // shims that must mirror a package's default export.
+    {
+      "files": [
+        "app/root.tsx",
+        "app/routes.ts",
+        "app/routes/**",
+        "*.config.ts",
+        "types/**/*.d.ts",
+        "scripts/oxlint-plugins/*.ts"
+      ],
+      "rules": { "import/no-default-export": "off" }
+    },
+    // Scripts are command-line programs: printing is their output.
+    {
+      "files": ["scripts/**", "request-logger/**"],
+      "rules": { "eslint/no-console": "off" }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "app/test/**"],
+      "rules": {
+        // Do not commit a skipped test.
+        "vitest/no-disabled-tests": "error",
+        "vitest/no-focused-tests": "error",
+        // `describe` and `it` callbacks group cases; they are not functions
+        // doing more than one thing.
+        "eslint/max-lines-per-function": "off"
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 Run `npm run check` before you report a change as complete; `npm run format` fixes formatting failures.
 
-Fix a lint failure in the code. `eslint-suppressions.json` and `.dependency-cruiser-known-violations.json` only shrink: after fixing an old violation, run `npm run lint:prune` or `npm run lint:boundaries:baseline`.
+Fix a lint failure in the code. `oxlint-suppressions.json`, `boolean-names-suppressions.json` and `.dependency-cruiser-known-violations.json` only shrink: after fixing an old violation, run `npm run lint:prune` or `npm run lint:boundaries:baseline`.
 
 ## Modules
 
