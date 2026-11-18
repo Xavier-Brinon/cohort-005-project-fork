@@ -16,6 +16,7 @@
       "specifier": "eslint-plugin-simple-import-sort"
     },
     { "name": "sonarjs", "specifier": "./scripts/oxlint-plugins/sonarjs.ts" },
+    { "name": "drizzle", "specifier": "./scripts/oxlint-plugins/drizzle.ts" },
     { "name": "unicorn-js", "specifier": "eslint-plugin-unicorn" }
   ],
   "env": { "browser": true, "node": true, "es2024": true },
@@ -125,6 +126,9 @@
 
     // Don't leave commented-out code.
     "sonarjs/no-commented-code": "error",
+
+    // Parameterise every query: sql.raw() only takes a fixed string.
+    "drizzle/no-dynamic-sql-raw": "error",
 
     // A disable comment says why.
     "eslint-comments/require-description": [

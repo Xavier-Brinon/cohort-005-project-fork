@@ -6,6 +6,9 @@ name the standard each one covers. The standards below have no check yet, so a
 reviewer applies them.
 Each heading names the check planned to replace it; when that check lands,
 delete the rules it covers.
+Custom lint rules live in `scripts/oxlint-plugins/<plugin>.ts`, with a
+RuleTester test beside it, registered under `jsPlugins` in `.oxlintrc.json`,
+and listed in `docs/custom-lint-rules.md`.
 
 ## Schema (a test over `app/db/schema.ts` and `drizzle/`)
 
@@ -32,8 +35,10 @@ delete the rules it covers.
 - **Paginate anything that grows** with the age of the product. The
   instructor's students page timed out on the first big course.
 - **Name the columns you select.**
-- **Parameterise every query.** A quote in somebody's name should not take
-  the page down.
+- **Parameterise every raw driver call** (`sqlite.exec`, `.prepare`): bind
+  values, never build the SQL string from them. A quote in somebody's name
+  should not take the page down. `drizzle/no-dynamic-sql-raw` already covers
+  drizzle's `sql.raw`.
 
 ## Routes and input (custom lint rules, plus a test over every route action)
 

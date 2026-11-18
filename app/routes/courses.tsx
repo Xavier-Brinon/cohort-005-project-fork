@@ -1,4 +1,4 @@
-import { and, eq, inArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, like, or, sql } from "drizzle-orm";
 import { AlertTriangle, BookOpen, Search } from "lucide-react";
 import {
   Form,
@@ -54,8 +54,12 @@ function buildCourseQuery(
   }
 
   if (search) {
+    const pattern = `%${search}%`;
     conditions.push(
-      sql.raw(`(title LIKE '%${search}%' OR description LIKE '%${search}%')`)
+      or(
+        like(coursesTable.title, pattern),
+        like(coursesTable.description, pattern)
+      )
     );
   }
 
