@@ -233,6 +233,27 @@ describe("renderComment", () => {
       expect(html).toContain('href="/courses/x/lessons/1"');
     });
 
+    it("keeps the query and fragment of a relative link", async () => {
+      const html = await renderComment(
+        markdown("[lesson](/courses/x?tab=notes#c2)")
+      );
+
+      expect(html).toContain('href="/courses/x?tab=notes#c2"');
+    });
+
+    it.each([
+      ["a backslash", "[click](/\\evil.test)"],
+      ["a tab", "[click](</\t/evil.test>)"],
+    ])(
+      "downgrades a relative link that a browser reads as off-site through %s",
+      async (_, source) => {
+        const html = await renderComment(markdown(source));
+
+        expect(html).not.toContain("<a ");
+        expect(html).toContain("click");
+      }
+    );
+
     it("escapes a link title", async () => {
       const html = await renderComment(
         markdown('[x](https://example.test "a \\"b\\" <c>")')
@@ -257,6 +278,13 @@ describe("renderComment", () => {
       );
 
       expect(html).not.toContain("<a ");
+    });
+
+    it("downgrades a URL that does not parse", async () => {
+      const html = await renderComment(markdown("[click](http://[bad)"));
+
+      expect(html).not.toContain("<a ");
+      expect(html).toContain("click");
     });
 
     it("downgrades a protocol-relative link", async () => {
