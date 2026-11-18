@@ -29,7 +29,7 @@ This course is written for Opus-level models. Budget for it:
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) v22+ (ships with npm v10+). This repo uses **npm**, not pnpm.
+- [mise](https://mise.jdx.dev/), which installs the Node.js and aube versions pinned in `mise.toml`: run `mise install` in the repo. This repo uses **aube**, not npm or pnpm.
 - [git](https://git-scm.com/)
 - A GitHub account and the [GitHub CLI](https://cli.github.com/) (`gh`), logged in: run `gh auth status` to check, or `gh auth login` to sign in
 - [jq](https://jqlang.org/download/), which some of the course scripts need
@@ -39,7 +39,8 @@ This course is written for Opus-level models. Budget for it:
 Quick check:
 
 ```bash
-node --version   # v22 or later
+node --version   # v26 or later
+aube --version
 git --version
 gh auth status
 jq --version
@@ -53,10 +54,10 @@ git clone https://github.com/ai-hero-dev/cohort-005-project.git
 cd cohort-005-project
 
 # 2. Fork it into your own GitHub repo
-npx ai-hero-cli fork
+aube dlx ai-hero-cli fork
 
 # 3. Install dependencies
-npm install
+aube install
 
 # 4. Run database migrations and seed data
 node --run db:migrate
@@ -70,7 +71,7 @@ The app will be running at `http://localhost:5173`. Use the floating DevUI panel
 
 ### What `fork` does
 
-`npx ai-hero-cli fork` turns your clone into your own repo:
+`aube dlx ai-hero-cli fork` turns your clone into your own repo:
 
 - It replaces the folder's git history with a single fresh commit on `main`.
 - It creates a new **public** GitHub repo on your account and pushes to it as `origin`.
@@ -131,7 +132,7 @@ node --run cherry-pick <slug>
 After a reset or cherry-pick, the code may need a different database or new dependencies. If in doubt, run all three:
 
 ```bash
-npm install            # if package-lock.json changed
+aube install           # if aube-lock.yaml changed
 node --run db:migrate  # if the schema changed
 node --run db:seed     # if the seed data changed
 ```
@@ -142,10 +143,10 @@ Your `.env` is gitignored, so it survives a reset.
 
 ### "Could not locate the bindings file"
 
-better-sqlite3's native binding was never built. This usually means `ignore-scripts=true` is set in your own npm config, so `npm install` skipped its install script. Rebuild it:
+better-sqlite3's native binding was never built: aube skipped its install script. This usually means `ignore-scripts=true` is set in your own `.npmrc`, or `better-sqlite3` is missing from `allowBuilds` in `aube-workspace.yaml`. `aube ignored-builds` lists the skipped scripts. Rebuild it:
 
 ```bash
-npm rebuild better-sqlite3 --ignore-scripts=false
+aube rebuild better-sqlite3
 ```
 
 ## Tech Stack
