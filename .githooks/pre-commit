@@ -1,0 +1,12 @@
+#!/bin/sh
+# Fast checks on staged files only; the full `node --run check` runs on pre-push.
+# Installed by `npm run prepare` (git config core.hooksPath .githooks).
+set -e
+
+# Prettier: fail if any staged file is not formatted.
+# Fix with `npm run format`, then `git add` the result.
+git diff --cached --name-only --diff-filter=ACMR -z |
+  xargs -0 node_modules/.bin/prettier --check --ignore-unknown --no-error-on-unmatched-pattern
+
+# Token budget: fail if any staged file is over 5000 tokens (bytes / 4).
+node scripts/check-file-tokens.ts
