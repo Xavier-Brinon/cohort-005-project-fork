@@ -1,7 +1,48 @@
-import { describe, expect, it } from "vitest";
+import type { Highlighter } from "shiki";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { renderComment } from "./comment-markdown.server";
+import type * as CommentMarkdown from "./comment-markdown.server";
 import { markdown } from "./text";
+
+// Wrap shiki's createHighlighter so the tests can see every highlighter the
+// renderer creates, and make one of them fail on demand.
+const highlighters = vi.hoisted(() => [] as Highlighter[]);
+
+vi.mock("shiki", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("shiki")>();
+  return {
+    ...actual,
+    createHighlighter: async (
+      ...options: Parameters<typeof actual.createHighlighter>
+    ) => {
+      const highlighter = await actual.createHighlighter(...options);
+      highlighters.push(highlighter);
+      return highlighter;
+    },
+  };
+});
+
+/** The distinct token colours in shiki output: plain text has one, highlighted code several. */
+function tokenColors(html: string): Set<string> {
+  return new Set(
+    [...html.matchAll(/<span style="color:(#[0-9a-f]+)/gi)].map(([, color]) =>
+      color.toLowerCase()
+    )
+  );
+}
+
+let renderComment: typeof CommentMarkdown.renderComment;
+
+beforeEach(async () => {
+  // The renderer caches its highlighter in module state, so with one shared
+  // copy only the first test to render would ever create it. Stryker runs
+  // only the tests that cover a mutant, so a mutant that breaks highlighter
+  // creation would face that one test alone, whichever it is. A fresh copy
+  // per test makes every test create its own highlighter.
+  vi.resetModules();
+  highlighters.length = 0;
+  ({ renderComment } = await import("./comment-markdown.server"));
+});
 
 describe("renderComment", () => {
   describe("markdown", () => {
@@ -27,11 +68,54 @@ describe("renderComment", () => {
       expect(html).toContain("const");
     });
 
-    it("falls back to a plain block for unknown languages", async () => {
+    it.each([
+      ["typescript", "const a: number = 1;"],
+      ["javascript", "const a = 1;"],
+      ["json", '{"a": 1}'],
+      ["bash", 'echo "hi"'],
+      ["html", '<p class="x">hi</p>'],
+      ["css", "a { color: red; }"],
+      ["tsx", "const a = <div />;"],
+      ["jsx", "const a = <div />;"],
+      ["sql", "SELECT 1 FROM t;"],
+      ["yaml", "a: 1"],
+      ["markdown", "# Title\n\n**bold**"],
+    ])("highlights %s", async (lang, code) => {
+      const html = await renderComment(
+        markdown(`\`\`\`${lang}\n${code}\n\`\`\``)
+      );
+
+      expect(tokenColors(html).size).toBeGreaterThan(1);
+    });
+
+    it("renders unknown languages as plain text through shiki", async () => {
       const html = await renderComment(markdown("```brainfuck\n+++\n```"));
 
-      expect(html).toContain("<pre");
+      expect(html).toContain('class="shiki');
       expect(html).toContain("+++");
+      expect(tokenColors(html).size).toBeLessThanOrEqual(1);
+    });
+
+    it("creates the highlighter once and reuses it", async () => {
+      await renderComment(markdown("```json\n{}\n```"));
+      await renderComment(markdown("```json\n{}\n```"));
+
+      expect(highlighters).toHaveLength(1);
+    });
+
+    it("falls back to an escaped block when shiki throws", async () => {
+      await renderComment(markdown("warm up"));
+      const [highlighter] = highlighters;
+      if (!highlighter) throw new Error("renderComment created no highlighter");
+      vi.spyOn(highlighter, "codeToHtml").mockImplementationOnce(() => {
+        throw new Error("shiki failed");
+      });
+
+      const html = await renderComment(markdown('```text\n<b> & "x"\n```'));
+
+      expect(html).toContain(
+        "<pre><code>&lt;b&gt; &amp; &quot;x&quot;</code></pre>"
+      );
     });
 
     it("escapes markup inside code blocks", async () => {
@@ -87,6 +171,16 @@ describe("renderComment", () => {
       expect(html).toContain("&lt;b onclick");
     });
 
+    it("escapes every markup character in a tag", async () => {
+      const html = await renderComment(
+        markdown(`hi <a href="?a=1&b=2" title='t'>`)
+      );
+
+      expect(html).toContain(
+        "&lt;a href=&quot;?a=1&amp;b=2&quot; title=&#39;t&#39;&gt;"
+      );
+    });
+
     it("escapes a style tag", async () => {
       const html = await renderComment(
         markdown("<style>body{display:none}</style>")
@@ -102,9 +196,49 @@ describe("renderComment", () => {
         markdown("[docs](https://example.test/a)")
       );
 
-      expect(html).toContain('href="https://example.test/a"');
-      expect(html).toContain('rel="nofollow noopener noreferrer"');
-      expect(html).toContain('target="_blank"');
+      expect(html).toContain(
+        '<a href="https://example.test/a" rel="nofollow noopener noreferrer" target="_blank">docs</a>'
+      );
+    });
+
+    it("keeps http links", async () => {
+      const html = await renderComment(
+        markdown("[docs](http://example.test/a)")
+      );
+
+      expect(html).toContain('href="http://example.test/a"');
+    });
+
+    it("keeps mailto links", async () => {
+      const html = await renderComment(
+        markdown("[mail](mailto:a@example.test)")
+      );
+
+      expect(html).toContain('href="mailto:a@example.test"');
+    });
+
+    it("keeps relative links", async () => {
+      const html = await renderComment(
+        markdown("[lesson](/courses/x/lessons/1)")
+      );
+
+      expect(html).toContain('href="/courses/x/lessons/1"');
+    });
+
+    it("keeps a relative link written with spaces around it", async () => {
+      const html = await renderComment(
+        markdown("[lesson](< /courses/x/lessons/1 >)")
+      );
+
+      expect(html).toContain('href="/courses/x/lessons/1"');
+    });
+
+    it("escapes a link title", async () => {
+      const html = await renderComment(
+        markdown('[x](https://example.test "a \\"b\\" <c>")')
+      );
+
+      expect(html).toContain('title="a &quot;b&quot; &lt;c&gt;"');
     });
 
     it("downgrades a javascript: link to plain text", async () => {
