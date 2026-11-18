@@ -59,11 +59,11 @@ npx ai-hero-cli fork
 npm install
 
 # 4. Run database migrations and seed data
-npm run db:migrate
-npm run db:seed
+node --run db:migrate
+node --run db:seed
 
 # 5. Start the dev server
-npm run dev
+node --run dev
 ```
 
 The app will be running at `http://localhost:5173`. Use the floating DevUI panel to switch between users.
@@ -86,20 +86,20 @@ You don't need these yet, but you'll be asked for them along the way. Both have 
 
 ## Scripts
 
-| Command                      | Description                                  |
-| ---------------------------- | -------------------------------------------- |
-| `npm run dev`                | Start the development server                 |
-| `npm run build`              | Build for production                         |
-| `npm run test`               | Run tests with Vitest                        |
-| `npm run test:watch`         | Run tests in watch mode                      |
-| `npm run test:mutation`      | Mutation testing (Stryker) on changed lines  |
-| `npm run typecheck`          | Type-check the project                       |
-| `npm run db:generate`        | Generate a migration from the schema         |
-| `npm run db:migrate`         | Run database migrations                      |
-| `npm run db:seed`            | Reseed the database (drops and recreates it) |
-| `npm run reset <slug>`       | Reset your repo to a lesson checkpoint       |
-| `npm run cherry-pick <slug>` | Cherry-pick a lesson's solution              |
-| `npm run pull`               | Merge the course repo's latest `main` in     |
+| Command                         | Description                                  |
+| ------------------------------- | -------------------------------------------- |
+| `node --run dev`                | Start the development server                 |
+| `node --run build`              | Build for production                         |
+| `node --run test`               | Run tests with Vitest                        |
+| `node --run test:watch`         | Run tests in watch mode                      |
+| `node --run test:mutation`      | Mutation testing (Stryker) on changed lines  |
+| `node --run typecheck`          | Type-check the project                       |
+| `node --run db:generate`        | Generate a migration from the schema         |
+| `node --run db:migrate`         | Run database migrations                      |
+| `node --run db:seed`            | Reseed the database (drops and recreates it) |
+| `node --run reset <slug>`       | Reset your repo to a lesson checkpoint       |
+| `node --run cherry-pick <slug>` | Cherry-pick a lesson's solution              |
+| `node --run pull`               | Merge the course repo's latest `main` in     |
 
 ## Course Structure
 
@@ -120,20 +120,20 @@ Each lesson that involves code has a checkpoint commit on the `live-run-through`
 
 ```bash
 # Reset to a lesson's checkpoint (run with no slug to pick from a list)
-npm run reset <slug>
+node --run reset <slug>
 
 # Cherry-pick a lesson's solution if you want to skip ahead
-npm run cherry-pick <slug>
+node --run cherry-pick <slug>
 ```
 
-`reset` is destructive: it discards your commits and uncommitted changes that aren't in the checkpoint. It asks before it does, but commit or branch anything you want to keep first. `npm run reset main` takes you back to the starting point.
+`reset` is destructive: it discards your commits and uncommitted changes that aren't in the checkpoint. It asks before it does, but commit or branch anything you want to keep first. `node --run reset main` takes you back to the starting point.
 
 After a reset or cherry-pick, the code may need a different database or new dependencies. If in doubt, run all three:
 
 ```bash
-npm install         # if package-lock.json changed
-npm run db:migrate  # if the schema changed
-npm run db:seed     # if the seed data changed
+npm install            # if package-lock.json changed
+node --run db:migrate  # if the schema changed
+node --run db:seed     # if the seed data changed
 ```
 
 Your `.env` is gitignored, so it survives a reset.
