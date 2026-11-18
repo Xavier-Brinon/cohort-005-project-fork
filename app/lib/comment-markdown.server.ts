@@ -81,9 +81,11 @@ function safeHref(href: string | null): string | null {
     // origin.
     if (trimmed.startsWith("/")) {
       const relative = new URL(trimmed, RELATIVE_LINK_BASE);
-      return relative.origin === RELATIVE_LINK_BASE
-        ? `${relative.pathname}${relative.search}${relative.hash}`
-        : null;
+      if (relative.origin !== RELATIVE_LINK_BASE) return null;
+      // Resolving removes dot segments, so "/.//host" stays on the origin
+      // with the path "//host". Written out, that path names another host.
+      if (relative.pathname.startsWith("//")) return null;
+      return `${relative.pathname}${relative.search}${relative.hash}`;
     }
 
     const url = new URL(trimmed);

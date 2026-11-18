@@ -244,6 +244,9 @@ describe("renderComment", () => {
     it.each([
       ["a backslash", "[click](/\\evil.test)"],
       ["a tab", "[click](</\t/evil.test>)"],
+      ["a dot segment", "[click](/.//evil.test)"],
+      ["a parent segment", "[click](/..//evil.test)"],
+      ["a parent segment after a path", "[click](/a/..//evil.test)"],
     ])(
       "downgrades a relative link that a browser reads as off-site through %s",
       async (_, source) => {
