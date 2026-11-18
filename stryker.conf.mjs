@@ -7,6 +7,12 @@
 const config = {
   packageManager: "npm",
   testRunner: "vitest",
+  // Name the runner by file URL. Stryker's default plugin search looks for
+  // "@stryker-mutator/*" next to its own core package, and aube can install
+  // core in its global store while the runner stays in this project's
+  // node_modules/.aube. The search then finds no runner. Resolving the URL
+  // from this file always finds the copy this project installed.
+  plugins: [import.meta.resolve("@stryker-mutator/vitest-runner")],
   vitest: {
     // Use the configuration of the project. The defaults of the runner do
     // not agree with it. See vitest.config.ts.
@@ -28,10 +34,11 @@ const config = {
   // the number of mutants small, which is what makes the command quick.
   coverageAnalysis: "off",
   // Incremental mode adds to the file list below; it does not replace it.
-  // Each run is already small, so the usual cost of incremental mode, a slow
-  // first run without a cache, does not apply. The gain: after you correct
-  // one mutant, Stryker examines again only the mutants that your correction
-  // can affect. The cache is a local file, and `.gitignore` excludes it.
+  // `node --run test:mutation` passes `--force`, so Stryker still writes this
+  // cache but does not reuse it: after a test changed, the cache reported
+  // mutants as Survived that the new test kills. A direct `aube x stryker run`
+  // without `--force` still reads it. The cache is a local file, and
+  // `.gitignore` excludes it.
   incremental: true,
   incrementalFile: "reports/stryker-incremental.json",
   // Keep this list empty. `scripts/mutate-diff.ts` supplies the files of the

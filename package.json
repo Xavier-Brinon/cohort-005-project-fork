@@ -15,7 +15,7 @@
     "typecheck": "react-router typegen && node node_modules/typescript7/bin/tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:mutation": "node scripts/mutate-diff.ts",
+    "test:mutation": "node scripts/mutate-diff.ts --force",
     "db:generate": "drizzle-kit generate",
     "db:seed": "node --import ./scripts/resolve-app-imports.ts scripts/seed.ts",
     "knock:sync-users": "node --import ./scripts/resolve-app-imports.ts scripts/sync-users-to-knock.ts",

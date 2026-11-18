@@ -19,6 +19,11 @@
  *     node --run test:mutation -- app/lib/analytics.ts
  *     node --run test:mutation -- app/lib
  *
+ * `--force` is passed on to Stryker, which then ignores its incremental
+ * cache and tests every mutant again. `node --run test:mutation` always
+ * passes it: after a test changes, the cache can still report a mutant as
+ * Survived that the new test kills.
+ *
  * See the "Verification checks" section of AGENTS.md for how to read the
  * result.
  */
@@ -213,10 +218,12 @@ function changedTargets(): Target[] {
 }
 
 const cliArguments = process.argv.slice(2);
-const isFromDiff = cliArguments.length === 0;
+const isForced = cliArguments.includes("--force");
+const namedPaths = cliArguments.filter((argument) => argument !== "--force");
+const isFromDiff = namedPaths.length === 0;
 const candidates: Target[] = isFromDiff
   ? changedTargets()
-  : namedFiles(cliArguments).map((file) => ({ file, lines: null }));
+  : namedFiles(namedPaths).map((file) => ({ file, lines: null }));
 
 const targets = candidates
   .filter(({ file }) => isSource(file) && isTested(file))
@@ -252,7 +259,15 @@ const mutate = targets.flatMap(({ file, lines }) =>
 // Pass the list as one argument, not through a shell. A path that contains a
 // space or a shell character must not change the command.
 try {
-  execFileSync("aube", ["x", "stryker", "run", "--mutate", mutate.join(",")], {
+  const strykerArguments = [
+    "x",
+    "stryker",
+    "run",
+    "--mutate",
+    mutate.join(","),
+  ];
+  if (isForced) strykerArguments.push("--force");
+  execFileSync("aube", strykerArguments, {
     cwd: repositoryRoot,
     stdio: "inherit",
   });
