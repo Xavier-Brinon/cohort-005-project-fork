@@ -1,10 +1,8 @@
 ## Verification checks
 
-Do these checks in this order before you report a change to `app/` as complete:
+Run `npm run check` before you report a change as complete; `npm run format` fixes formatting failures.
 
-1. `npm run typecheck`
-2. `npm run lint:boundaries`
-3. `npm run test`
+Fix a lint failure in the code. `eslint-suppressions.json` and `.dependency-cruiser-known-violations.json` only shrink: after fixing an old violation, run `npm run lint:prune` or `npm run lint:boundaries:baseline`.
 
 ## Modules
 
