@@ -1,6 +1,7 @@
-// Fails when a server secret reaches the browser bundle: either the name of a
-// secret environment variable or its value appears in build/client.
-// CODING_STANDARDS.md: "Never put a secret in the client bundle."
+// Fails when server code reaches the browser bundle: the name of a secret
+// environment variable, its value, or a server-only package appears in
+// build/client. CODING_STANDARDS.md: "Never put a secret in the client bundle."
+// A server-only package in the browser also breaks hydration for the whole page.
 // Run after `react-router build`. Prints names only, never values.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -17,6 +18,15 @@ const KNOWN_SECRET_NAMES = [
 
 const SECRET_NAME_PATTERN = /SECRET|TOKEN|PASSWORD|PRIVATE|SIGNING|_KEY$/;
 const PUBLIC_NAME_PATTERN = /PUBLIC|^VITE_/;
+
+// A string each server-only package carries that survives minification. Found
+// by building with the package imported into a component and diffing the
+// output; a module path or package name does not survive.
+const SERVER_PACKAGE_MARKERS: Record<string, string> = {
+  "better-sqlite3": "Cannot open database because the directory does not exist",
+  "@knocklabs/node":
+    "The KNOCK_API_KEY environment variable is missing or empty",
+};
 
 // A value shorter than this matches by accident ("true", "1234").
 const MINIMUM_VALUE_LENGTH = 8;
@@ -61,6 +71,13 @@ function leaksIn(file: string, names: string[]): Leak[] {
   });
 }
 
+function serverPackagesIn(file: string) {
+  const content = readFileSync(file, "utf8");
+  return Object.entries(SERVER_PACKAGE_MARKERS)
+    .filter(([, marker]) => content.includes(marker))
+    .map(([name]) => ({ file, name }));
+}
+
 function main() {
   if (!existsSync(CLIENT_BUILD)) {
     console.error(`No ${CLIENT_BUILD}/. Run \`npm run build\` first.`);
@@ -68,11 +85,13 @@ function main() {
   }
 
   const names = secretNames();
-  const leaks = listFiles(CLIENT_BUILD).flatMap((file) => leaksIn(file, names));
+  const files = listFiles(CLIENT_BUILD);
+  const leaks = files.flatMap((file) => leaksIn(file, names));
+  const packages = files.flatMap(serverPackagesIn);
 
-  if (leaks.length === 0) {
+  if (leaks.length === 0 && packages.length === 0) {
     console.log(
-      `No server secrets in ${CLIENT_BUILD}/ (checked ${names.length} names).`
+      `No server secrets or server-only packages in ${CLIENT_BUILD}/ (checked ${names.length} names, ${Object.keys(SERVER_PACKAGE_MARKERS).length} packages).`
     );
     return;
   }
@@ -80,7 +99,19 @@ function main() {
   for (const leak of leaks) {
     console.error(`${leak.file}: the ${leak.kind} of ${leak.name}`);
   }
-  console.error(`${leaks.length} server secret(s) found in the client bundle.`);
+  for (const found of packages) {
+    console.error(`${found.file}: the server-only package ${found.name}`);
+  }
+  if (leaks.length > 0) {
+    console.error(
+      `${leaks.length} server secret(s) found in the client bundle.`
+    );
+  }
+  if (packages.length > 0) {
+    console.error(
+      `${packages.length} server-only package(s) found in the client bundle. Import them from a .server file and call them from a loader or action.`
+    );
+  }
   process.exit(1);
 }
 
