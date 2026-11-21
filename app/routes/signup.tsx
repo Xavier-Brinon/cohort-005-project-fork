@@ -16,6 +16,7 @@ import { db } from "~/db";
 import { UserRole, users } from "~/db/schema";
 import { syncUser } from "~/lib/notification-preferences.server";
 import { defaultNotifications } from "~/lib/notifications.server";
+import { safeRedirectPath } from "~/lib/redirects";
 import { getCurrentUserId, setCurrentUserId } from "~/lib/session";
 import { parseFormData } from "~/lib/validation";
 
@@ -41,9 +42,10 @@ export function meta() {
 export async function loader({ request, url }: Route.LoaderArgs) {
   const currentUserId = await getCurrentUserId(request);
   if (currentUserId) {
-    const redirectTo = url.searchParams.get("redirectTo");
-    const destination =
-      redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+    const destination = safeRedirectPath(
+      url.searchParams.get("redirectTo"),
+      "/courses"
+    );
     throw redirect(destination);
   }
   return {};
@@ -68,9 +70,10 @@ export async function action({ request, url }: Route.ActionArgs) {
 
   const { name, email } = parsed.data;
 
-  const redirectTo = url.searchParams.get("redirectTo");
-  const destination =
-    redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+  const destination = safeRedirectPath(
+    url.searchParams.get("redirectTo"),
+    "/courses"
+  );
 
   // If email already exists, silently log them in
   const existingUser = db

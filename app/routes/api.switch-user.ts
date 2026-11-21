@@ -1,6 +1,7 @@
 import { redirect } from "react-router";
 import { z } from "zod";
 
+import { safeRedirectPath } from "~/lib/redirects";
 import { setCurrentUserId } from "~/lib/session";
 import { parseFormData } from "~/lib/validation";
 
@@ -20,7 +21,7 @@ export async function action({ request, url }: Route.ActionArgs) {
 
   const cookie = await setCurrentUserId(request, parsed.data.userId);
 
-  return redirect(url.searchParams.get("redirectTo") ?? "/", {
+  return redirect(safeRedirectPath(url.searchParams.get("redirectTo"), "/"), {
     headers: { "Set-Cookie": cookie },
   });
 }
