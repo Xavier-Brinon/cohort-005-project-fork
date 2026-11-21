@@ -4,6 +4,7 @@ import {
   createOption,
   createQuestion,
   createQuiz,
+  type Database,
   deleteQuiz,
   getQuizByLessonId,
 } from "./queries.server";
@@ -19,30 +20,34 @@ function parseWizardData(wizardJson: string) {
 }
 
 /** Deletes the lesson's quiz, if it has one, with its questions and attempts. */
-export function deleteQuizOfLesson(lessonId: number) {
-  const existingQuiz = getQuizByLessonId(lessonId);
+export function deleteQuizOfLesson(database: Database, lessonId: number) {
+  const existingQuiz = getQuizByLessonId(database, lessonId);
   if (existingQuiz) {
-    deleteQuiz(existingQuiz.id);
+    deleteQuiz(database, existingQuiz.id);
   }
 }
 
 /** Replaces the lesson's quiz with the one the wizard built. */
-export function saveQuiz(lessonId: number, wizardJson: string) {
+export function saveQuiz(
+  database: Database,
+  lessonId: number,
+  wizardJson: string
+) {
   const wizardData = parseWizardData(wizardJson);
-  if (!wizardData) {
+  if (wizardData === null) {
     return data({ error: "Invalid quiz data." }, { status: 400 });
   }
 
-  deleteQuizOfLesson(lessonId);
+  deleteQuizOfLesson(database, lessonId);
 
-  const quiz = createQuiz(
+  const quiz = createQuiz(database, {
     lessonId,
-    wizardData.title.trim(),
-    wizardData.passingScore / 100
-  );
+    title: wizardData.title,
+    passingScore: wizardData.passingScore / 100,
+  });
 
   for (const [index, wizardQuestion] of wizardData.questions.entries()) {
-    const question = createQuestion({
+    const question = createQuestion(database, {
       quizId: quiz.id,
       questionText: wizardQuestion.text.trim(),
       questionType: wizardQuestion.type,
@@ -50,7 +55,11 @@ export function saveQuiz(lessonId: number, wizardJson: string) {
     });
 
     for (const option of wizardQuestion.options) {
-      createOption(question.id, option.text.trim(), option.isCorrect);
+      createOption(database, {
+        questionId: question.id,
+        optionText: option.text.trim(),
+        isCorrect: option.isCorrect,
+      });
     }
   }
 

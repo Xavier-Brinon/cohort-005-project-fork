@@ -79,3 +79,71 @@ export function seedBaseData(testDb: TestDb) {
 
   return { user, instructor, category, course };
 }
+
+/** Inserts a user with `role`; the email is derived from the name. */
+export function seedUser(
+  testDatabase: TestDb,
+  user: { name: string; role: schema.UserRole }
+) {
+  return testDatabase
+    .insert(schema.users)
+    .values({ ...user, email: `${user.name.toLowerCase()}@example.com` })
+    .returning()
+    .get();
+}
+
+/** Inserts a published course taught by `instructorId`, in `categoryId`. */
+export function seedCourse(
+  testDatabase: TestDb,
+  course: { slug: string; instructorId: number; categoryId: number }
+) {
+  return testDatabase
+    .insert(schema.courses)
+    .values({
+      ...course,
+      title: course.slug,
+      description: `The ${course.slug} course`,
+      salesCopy: markdown(`## ${course.slug}`),
+      status: schema.CourseStatus.Published,
+    })
+    .returning()
+    .get();
+}
+
+/** Inserts a module holding one lesson in `courseId`; returns the lesson. */
+export function seedLesson(testDatabase: TestDb, courseId: number) {
+  const lessonModule = testDatabase
+    .insert(schema.modules)
+    .values({ courseId, title: "Module", position: 1 })
+    .returning()
+    .get();
+
+  return testDatabase
+    .insert(schema.lessons)
+    .values({ moduleId: lessonModule.id, title: "Lesson", position: 1 })
+    .returning()
+    .get();
+}
+
+/** Records that `userId` took `quizId` and picked `optionId` for `questionId`. */
+export function seedQuizAttempt(
+  testDatabase: TestDb,
+  attempt: {
+    userId: number;
+    quizId: number;
+    questionId: number;
+    optionId: number;
+  }
+) {
+  const { userId, quizId, questionId, optionId } = attempt;
+  const row = testDatabase
+    .insert(schema.quizAttempts)
+    .values({ userId, quizId, score: 1, passed: true })
+    .returning()
+    .get();
+
+  testDatabase
+    .insert(schema.quizAnswers)
+    .values({ attemptId: row.id, questionId, selectedOptionId: optionId })
+    .run();
+}

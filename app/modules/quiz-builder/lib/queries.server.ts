@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
+import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 
-import { db } from "~/db";
+import type * as schema from "~/db/schema";
 import {
   courses,
   lessons,
@@ -14,32 +15,34 @@ import {
   users,
 } from "~/db/schema";
 
-export function getUserById(id: number) {
-  return db.select().from(users).where(eq(users.id, id)).get();
+export type Database = BetterSQLite3Database<typeof schema>;
+
+export function getUserById(database: Database, id: number) {
+  return database.select().from(users).where(eq(users.id, id)).get();
 }
 
-export function getCourseById(id: number) {
-  return db.select().from(courses).where(eq(courses.id, id)).get();
+export function getCourseById(database: Database, id: number) {
+  return database.select().from(courses).where(eq(courses.id, id)).get();
 }
 
-export function getModuleById(id: number) {
-  return db.select().from(modules).where(eq(modules.id, id)).get();
+export function getModuleById(database: Database, id: number) {
+  return database.select().from(modules).where(eq(modules.id, id)).get();
 }
 
-export function getLessonById(id: number) {
-  return db.select().from(lessons).where(eq(lessons.id, id)).get();
+export function getLessonById(database: Database, id: number) {
+  return database.select().from(lessons).where(eq(lessons.id, id)).get();
 }
 
-function getQuizById(id: number) {
-  return db.select().from(quizzes).where(eq(quizzes.id, id)).get();
+export function getQuizByLessonId(database: Database, lessonId: number) {
+  return database
+    .select()
+    .from(quizzes)
+    .where(eq(quizzes.lessonId, lessonId))
+    .get();
 }
 
-export function getQuizByLessonId(lessonId: number) {
-  return db.select().from(quizzes).where(eq(quizzes.lessonId, lessonId)).get();
-}
-
-function getQuestionsByQuiz(quizId: number) {
-  return db
+function getQuestionsByQuiz(database: Database, quizId: number) {
+  return database
     .select()
     .from(quizQuestions)
     .where(eq(quizQuestions.quizId, quizId))
@@ -47,14 +50,11 @@ function getQuestionsByQuiz(quizId: number) {
     .all();
 }
 
-export function getQuizWithQuestions(quizId: number) {
-  const quiz = getQuizById(quizId);
-  if (!quiz) return null;
+type Quiz = typeof quizzes.$inferSelect;
 
-  const questions = getQuestionsByQuiz(quizId);
-
-  const questionsWithOptions = questions.map((question) => {
-    const options = db
+export function getQuizWithQuestions(database: Database, quiz: Quiz) {
+  const questions = getQuestionsByQuiz(database, quiz.id).map((question) => {
+    const options = database
       .select()
       .from(quizOptions)
       .where(eq(quizOptions.questionId, question.id))
@@ -62,40 +62,43 @@ export function getQuizWithQuestions(quizId: number) {
     return { ...question, options };
   });
 
-  return { ...quiz, questions: questionsWithOptions };
+  return { ...quiz, questions };
 }
 
-export function createQuiz(
-  lessonId: number,
-  title: string,
-  passingScore: number
-) {
-  return db
-    .insert(quizzes)
-    .values({ lessonId, title, passingScore })
-    .returning()
-    .get();
+interface NewQuiz {
+  lessonId: number;
+  title: string;
+  passingScore: number;
 }
 
-export function deleteQuiz(id: number) {
-  // Cascade: delete answers -> attempts -> options -> questions -> quiz
-  const questions = getQuestionsByQuiz(id);
-  for (const question of questions) {
-    db.delete(quizOptions).where(eq(quizOptions.questionId, question.id)).run();
-  }
+export function createQuiz(database: Database, quiz: NewQuiz) {
+  return database.insert(quizzes).values(quiz).returning().get();
+}
 
-  const attempts = db
+export function deleteQuiz(database: Database, id: number) {
+  // Children before parents: answers point at options, so options can only go
+  // once the answers (and their attempts) are gone.
+  const attempts = database
     .select()
     .from(quizAttempts)
     .where(eq(quizAttempts.quizId, id))
     .all();
   for (const attempt of attempts) {
-    db.delete(quizAnswers).where(eq(quizAnswers.attemptId, attempt.id)).run();
+    database
+      .delete(quizAnswers)
+      .where(eq(quizAnswers.attemptId, attempt.id))
+      .run();
   }
+  database.delete(quizAttempts).where(eq(quizAttempts.quizId, id)).run();
 
-  db.delete(quizAttempts).where(eq(quizAttempts.quizId, id)).run();
-  db.delete(quizQuestions).where(eq(quizQuestions.quizId, id)).run();
-  return db.delete(quizzes).where(eq(quizzes.id, id)).returning().get();
+  for (const question of getQuestionsByQuiz(database, id)) {
+    database
+      .delete(quizOptions)
+      .where(eq(quizOptions.questionId, question.id))
+      .run();
+  }
+  database.delete(quizQuestions).where(eq(quizQuestions.quizId, id)).run();
+  database.delete(quizzes).where(eq(quizzes.id, id)).run();
 }
 
 interface NewQuestion {
@@ -105,18 +108,16 @@ interface NewQuestion {
   position: number;
 }
 
-export function createQuestion(question: NewQuestion) {
-  return db.insert(quizQuestions).values(question).returning().get();
+export function createQuestion(database: Database, question: NewQuestion) {
+  return database.insert(quizQuestions).values(question).returning().get();
 }
 
-export function createOption(
-  questionId: number,
-  optionText: string,
-  isCorrect: boolean
-) {
-  return db
-    .insert(quizOptions)
-    .values({ questionId, optionText, isCorrect })
-    .returning()
-    .get();
+interface NewOption {
+  questionId: number;
+  optionText: string;
+  isCorrect: boolean;
+}
+
+export function createOption(database: Database, option: NewOption) {
+  database.insert(quizOptions).values(option).run();
 }

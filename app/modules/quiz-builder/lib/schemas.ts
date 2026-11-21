@@ -8,7 +8,7 @@ export const quizParametersSchema = z.object({
 });
 
 export const wizardDataSchema = z.object({
-  title: z.string().trim().min(1, "Quiz title is required."),
+  title: z.string().trim().min(1),
   passingScore: z.number(),
   questions: z
     .array(
@@ -25,7 +25,7 @@ export const wizardDataSchema = z.object({
         ),
       })
     )
-    .min(1, "At least one question is required."),
+    .min(1),
 });
 
 export const quizActionSchema = z.discriminatedUnion("intent", [
