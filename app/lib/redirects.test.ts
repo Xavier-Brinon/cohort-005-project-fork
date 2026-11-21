@@ -21,6 +21,10 @@ describe("safeRedirectPath", () => {
       "/\\evil.example",
       "/\t/evil.example",
       "//evil.example/courses",
+      "/.//evil.example",
+      "/..//evil.example",
+      "/%2e//evil.example",
+      "/courses/..//evil.example",
     ]) {
       expect(safeRedirectPath(target, "/fallback")).toBe("/fallback");
     }
