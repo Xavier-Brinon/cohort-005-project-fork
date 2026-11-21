@@ -8,14 +8,17 @@ const THIS_SITE = "http://this-site.invalid";
  * Checking `startsWith("/")` is not enough: browsers read `//evil.com` and
  * `/\\evil.com` as links to another site. The target is parsed the way a
  * browser would and returned in its normalised form, so the redirect goes
- * where the check looked.
+ * where the check looked. That form is checked too: `/.//evil.example`
+ * stays on this site while parsing, then normalises to `//evil.example`.
  */
 export function safeRedirectPath(target: string | null, fallback: string) {
   if (!target?.startsWith("/")) return fallback;
 
   try {
     const url = new URL(target, THIS_SITE);
-    if (url.origin !== THIS_SITE) return fallback;
+    if (url.origin !== THIS_SITE || url.pathname.startsWith("//")) {
+      return fallback;
+    }
     return url.pathname + url.search + url.hash;
   } catch {
     return fallback;
