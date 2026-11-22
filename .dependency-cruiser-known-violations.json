@@ -190,37 +190,6 @@
   },
   {
     "type": "dependency",
-    "from": "app/routes/courses.$slug.lessons.$lessonId.tsx",
-    "to": "../../../../.cache/aube/virtual-store/v1/drizzle-orm@0.45.2_@types+better-sqlite3@7.6.13_better-sqlite3@12.11.1_-a7176b4e4297274b/node_modules/drizzle-orm/index.cjs",
-    "unresolvedTo": "drizzle-orm",
-    "dependencyTypes": [
-      "npm",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "routes-ask-modules-for-data"
-    }
-  },
-  {
-    "type": "dependency",
-    "from": "app/routes/courses.$slug.lessons.$lessonId.tsx",
-    "to": "app/db/index.ts",
-    "unresolvedTo": "~/db",
-    "dependencyTypes": [
-      "aliased",
-      "aliased-tsconfig",
-      "aliased-tsconfig-paths",
-      "local",
-      "import"
-    ],
-    "rule": {
-      "severity": "error",
-      "name": "routes-ask-modules-for-data"
-    }
-  },
-  {
-    "type": "dependency",
     "from": "app/routes/courses.$slug.purchase.tsx",
     "to": "../../../../.cache/aube/virtual-store/v1/drizzle-orm@0.45.2_@types+better-sqlite3@7.6.13_better-sqlite3@12.11.1_-a7176b4e4297274b/node_modules/drizzle-orm/index.cjs",
     "unresolvedTo": "drizzle-orm",
