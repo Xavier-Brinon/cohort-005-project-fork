@@ -1,8 +1,5 @@
 {
   "app/components/comment-thread.tsx": {
-    "eslint-comments/require-description": {
-      "count": 1
-    },
     "max-lines-per-function": {
       "count": 4
     },
@@ -13,7 +10,7 @@
       "count": 1
     },
     "ways-of-working/no-comments": {
-      "count": 8
+      "count": 6
     }
   },
   "app/components/dev-ui.tsx": {

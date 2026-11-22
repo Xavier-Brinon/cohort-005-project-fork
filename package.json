@@ -64,7 +64,6 @@
   "devDependencies": {
     "@ai-hero/sandcastle": "^0.14.0",
     "@clack/prompts": "^1.7.0",
-    "@eslint-community/eslint-plugin-eslint-comments": "^4.8.1",
     "@knocklabs/agent-toolkit": "^0.5.8",
     "@knocklabs/cli": "^1.6.2",
     "@knocklabs/mgmt": "^0.46.1",
