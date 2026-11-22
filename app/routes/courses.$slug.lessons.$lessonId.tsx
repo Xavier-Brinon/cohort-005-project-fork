@@ -845,18 +845,21 @@ export async function action({ params, request }: Route.ActionArgs) {
     throw data("You must be logged in", { status: 401 });
   }
 
+  // Every intent reads or writes this lesson for the current user, so every
+  // one needs content access to the course in the URL, and the lesson must be
+  // in that course: access to one course must not reach another's lessons by
+  // posting their ids here. Loader guards don't protect actions.
+  const access = await requireContentAccess(request, course.id);
+  requireLessonInCourse(lessonId, course.id);
+
   const formData = await request.formData();
   const intent = formData.get("intent");
 
-  // Comment intents re-check access here rather than relying on the loader —
-  // loader guards don't protect actions.
   if (
     intent === "create-comment" ||
     intent === "edit-comment" ||
     intent === "delete-comment"
   ) {
-    const access = await requireContentAccess(request, course.id);
-
     try {
       if (intent === "create-comment") {
         const parsed = parseFormData(formData, createCommentSchema);
@@ -926,12 +929,7 @@ export async function action({ params, request }: Route.ActionArgs) {
     }
   }
 
-  // Bookmark and Note intents re-check access here, like the comment intents
-  // above — loader guards don't protect actions.
   if (intent === "toggle-bookmark" || intent === "save-note") {
-    await requireContentAccess(request, course.id);
-    requireLessonInCourse(lessonId, course.id);
-
     if (intent === "toggle-bookmark") {
       const bookmarked = toggleBookmark(
         db,
@@ -966,6 +964,10 @@ export async function action({ params, request }: Route.ActionArgs) {
     const quizId = Number(formData.get("quizId"));
     if (isNaN(quizId)) {
       throw data("Invalid quiz ID", { status: 400 });
+    }
+    // Only this lesson's quiz: scoring another one would reveal its answers.
+    if (getQuizByLessonId(lessonId)?.id !== quizId) {
+      throw data("Quiz not found", { status: 404 });
     }
 
     // Collect answers: form fields named "question-{questionId}" with value = optionId
