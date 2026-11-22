@@ -1,19 +1,15 @@
-import { useState, useEffect } from "react";
+import { eq } from "drizzle-orm";
+import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link, redirect, useFetcher } from "react-router";
+import { data, isRouteErrorResponse } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { Route } from "./+types/instructor.new";
-import { getCurrentUserId } from "~/lib/session";
-import { parseFormData } from "~/lib/validation";
-import { UserRole } from "~/db/schema";
-import { db } from "~/db";
-import { users, categories, courses, CourseStatus } from "~/db/schema";
-import { eq } from "drizzle-orm";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
+
 import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { Textarea } from "~/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -21,8 +17,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { AlertTriangle, ArrowLeft } from "lucide-react";
-import { data, isRouteErrorResponse } from "react-router";
+import { Textarea } from "~/components/ui/textarea";
+import { db } from "~/db";
+import { UserRole } from "~/db/schema";
+import { categories, courses, CourseStatus, users } from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+import { markdown } from "~/lib/text";
+import { parseFormData } from "~/lib/validation";
+
+import type { Route } from "./+types/instructor.new";
 
 function getUserById(id: number) {
   return db.select().from(users).where(eq(users.id, id)).get();
@@ -62,7 +65,7 @@ function createCourse(
       title,
       slug,
       description,
-      salesCopy,
+      salesCopy: markdown(salesCopy),
       instructorId,
       categoryId,
       status: CourseStatus.Draft,

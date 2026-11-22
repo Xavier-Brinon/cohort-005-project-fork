@@ -61,11 +61,11 @@ node --version   # v26
 aube install
 
 # 4. Run database migrations and seed data
-aube run db:migrate
-aube run db:seed
+node --run db:migrate
+node --run db:seed
 
 # 5. Start the dev server
-aube run dev
+node --run dev
 ```
 
 The app will be running at `http://localhost:5173`. Use the floating DevUI panel to switch between users.
@@ -88,22 +88,24 @@ You don't need these yet, but you'll be asked for them along the way. Both have 
 
 ## Scripts
 
-| Command                       | Description                                  |
-| ----------------------------- | -------------------------------------------- |
-| `aube run dev`                | Start the development server                 |
-| `aube run build`              | Build for production                         |
-| `aube run test`               | Run tests with Vitest                        |
-| `aube run test:watch`         | Run tests in watch mode                      |
-| `aube run typecheck`          | Type-check the project                       |
-| `aube run lint`               | Lint with oxlint                             |
-| `aube run format`             | Format with oxfmt (`format:check` to check)  |
-| `aube run db:generate`        | Generate a migration from the schema         |
-| `aube run db:migrate`         | Run database migrations                      |
-| `aube run db:seed`            | Reseed the database (drops and recreates it) |
-| `aube run reset <slug>`       | Reset your repo to a lesson checkpoint       |
-| `aube run cherry-pick <slug>` | Cherry-pick a lesson's solution              |
-| `aube run pull`               | Merge the course repo's latest `main` in     |
-| `aube run knock:check`        | Compare Knock workflows with `.knock/`       |
+| Command                         | Description                                  |
+| ------------------------------- | -------------------------------------------- |
+| `node --run dev`                | Start the development server                 |
+| `node --run build`              | Build for production                         |
+| `node --run check`              | Run every check, as the pre-push hook does   |
+| `node --run test`               | Run tests with Vitest                        |
+| `node --run test:watch`         | Run tests in watch mode                      |
+| `node --run test:mutation`      | Mutation testing (Stryker) on changed lines  |
+| `node --run typecheck`          | Type-check the project                       |
+| `node --run lint`               | Lint with oxlint                             |
+| `node --run format`             | Format with oxfmt (`format:check` to check)  |
+| `node --run db:generate`        | Generate a migration from the schema         |
+| `node --run db:migrate`         | Run database migrations                      |
+| `node --run db:seed`            | Reseed the database (drops and recreates it) |
+| `node --run reset <slug>`       | Reset your repo to a lesson checkpoint       |
+| `node --run cherry-pick <slug>` | Cherry-pick a lesson's solution              |
+| `node --run pull`               | Merge the course repo's latest `main` in     |
+| `node --run knock:check`        | Compare Knock workflows with `.knock/`       |
 
 ## Course Structure
 
@@ -124,20 +126,20 @@ Each lesson that involves code has a checkpoint commit on the `live-run-through`
 
 ```bash
 # Reset to a lesson's checkpoint (run with no slug to pick from a list)
-aube run reset <slug>
+node --run reset <slug>
 
 # Cherry-pick a lesson's solution if you want to skip ahead
-aube run cherry-pick <slug>
+node --run cherry-pick <slug>
 ```
 
-`reset` is destructive: it discards your commits and uncommitted changes that aren't in the checkpoint. It asks before it does, but commit or branch anything you want to keep first. `aube run reset main` takes you back to the starting point.
+`reset` is destructive: it discards your commits and uncommitted changes that aren't in the checkpoint. It asks before it does, but commit or branch anything you want to keep first. `node --run reset main` takes you back to the starting point.
 
 After a reset or cherry-pick, the code may need a different database or new dependencies. If in doubt, run all three:
 
 ```bash
-aube install         # if aube-lock.yaml changed
-aube run db:migrate  # if the schema changed
-aube run db:seed     # if the seed data changed
+aube install           # if aube-lock.yaml changed
+node --run db:migrate  # if the schema changed
+node --run db:seed     # if the seed data changed
 ```
 
 Your `.env` is gitignored, so it survives a reset. The course checkpoints use npm, so a reset to one also brings back `package-lock.json` and drops the aube, mise and oxc setup from this fork. `aube run pull` keeps the setup but can reintroduce `package-lock.json` changes: delete the file, keep `aube-lock.yaml`, and run `aube install` to resolve the merge.
@@ -146,7 +148,7 @@ Your `.env` is gitignored, so it survives a reset. The course checkpoints use np
 
 ### "Could not locate the bindings file"
 
-better-sqlite3's native binding was never built. aube only runs the install scripts listed under `allowBuilds` in `aube-workspace.yaml`; `aube ignored-builds` shows what it skipped. With `better-sqlite3` listed, rebuild it:
+better-sqlite3's native binding was never built: aube skipped its install script. This usually means `ignore-scripts=true` is set in your own `.npmrc`, or `better-sqlite3` is missing from `allowBuilds` in `aube-workspace.yaml`. `aube ignored-builds` lists the skipped scripts. Rebuild it:
 
 ```bash
 aube rebuild better-sqlite3

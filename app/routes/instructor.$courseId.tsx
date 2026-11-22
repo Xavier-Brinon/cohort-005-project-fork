@@ -1,33 +1,37 @@
-import { useState, useRef, useEffect } from "react";
-import { Link, useFetcher } from "react-router";
-import { toast } from "sonner";
 import {
   DragDropContext,
-  Droppable,
   Draggable,
+  Droppable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import type { Route } from "./+types/instructor.$courseId";
-import { getCurrentUserId } from "~/lib/session";
-import { CourseStatus, UserRole } from "~/db/schema";
-import { db } from "~/db";
+import { and, desc, eq, gt, gte, or, sql } from "drizzle-orm";
 import {
-  courses,
-  categories,
-  users,
-  modules,
-  lessons,
-  enrollments,
-  lessonProgress,
-  LessonProgressStatus,
-  quizzes,
-  quizAttempts,
-} from "~/db/schema";
-import { eq, and, or, sql, desc, gt, gte } from "drizzle-orm";
-import { formatDuration, formatPrice } from "~/lib/utils";
+  AlertTriangle,
+  ArrowLeft,
+  Award,
+  BookOpen,
+  Clock,
+  Eye,
+  FileEdit,
+  FileText,
+  Globe,
+  GripVertical,
+  Pencil,
+  Plus,
+  Save,
+  Settings,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useFetcher } from "react-router";
+import { data, isRouteErrorResponse } from "react-router";
+import { toast } from "sonner";
+import { z } from "zod";
+
 import { MonacoMarkdownEditor } from "~/components/monaco-markdown-editor";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import {
   Select,
@@ -37,27 +41,26 @@ import {
   SelectValue,
 } from "~/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { db } from "~/db";
+import { CourseStatus, UserRole } from "~/db/schema";
 import {
-  ArrowLeft,
-  BookOpen,
-  Clock,
-  Eye,
-  FileEdit,
-  GripVertical,
-  Pencil,
-  Plus,
-  Save,
-  Settings,
-  Trash2,
-  Users,
-  AlertTriangle,
-  Award,
-  Globe,
-  FileText,
-} from "lucide-react";
-import { data, isRouteErrorResponse } from "react-router";
-import { z } from "zod";
+  categories,
+  courses,
+  enrollments,
+  lessonProgress,
+  LessonProgressStatus,
+  lessons,
+  modules,
+  quizAttempts,
+  quizzes,
+  users,
+} from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+import { markdown } from "~/lib/text";
+import { formatDuration, formatPrice } from "~/lib/utils";
 import { parseFormData, parseParams } from "~/lib/validation";
+
+import type { Route } from "./+types/instructor.$courseId";
 
 function getUserById(id: number) {
   return db.select().from(users).where(eq(users.id, id)).get();
@@ -167,7 +170,10 @@ function updateCourseSalesCopy(id: number, salesCopy: string) {
 
   return db
     .update(courses)
-    .set({ salesCopy, updatedAt: new Date().toISOString() })
+    .set({
+      salesCopy: markdown(salesCopy),
+      updatedAt: new Date().toISOString(),
+    })
     .where(eq(courses.id, id))
     .returning()
     .get();
@@ -283,7 +289,7 @@ function createLesson(
     .values({
       moduleId,
       title,
-      content,
+      content: content === null ? null : markdown(content),
       videoUrl,
       position: pos,
       durationMinutes,
@@ -1501,7 +1507,7 @@ export default function InstructorCourseEditor({
   const priceFetcher = useFetcher();
   const pppFetcher = useFetcher();
 
-  const [salesCopy, setSalesCopy] = useState(course.salesCopy);
+  const [salesCopy, setSalesCopy] = useState<string>(course.salesCopy);
   const salesCopyHasChanges = salesCopy !== course.salesCopy;
   const salesCopyIsEmpty = salesCopy.trim().length === 0;
 

@@ -1,11 +1,19 @@
-import { defineConfig, configDefaults } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { configDefaults, defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     globals: true,
-    // Agent worktrees hold full copies of the repo, tests included.
-    exclude: [...configDefaults.exclude, ".claude/worktrees/**"],
+    exclude: [
+      ...configDefaults.exclude,
+      ".claude/**",
+      // Stryker copies the project into `.stryker-tmp` for each run. If a run
+      // stops early, the directory stays. Without this pattern, `npm run test`
+      // then finds each test two times and gives a count that is twice the
+      // correct value. Stryker is not affected: in the sandbox, the copy is
+      // the root, so no path contains this directory name.
+      "**/.stryker-tmp/**",
+    ],
   },
 });

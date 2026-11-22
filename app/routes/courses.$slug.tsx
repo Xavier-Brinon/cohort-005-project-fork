@@ -1,33 +1,4 @@
-import { useEffect, useState } from "react";
-import { Link, useFetcher, useSearchParams } from "react-router";
-import { toast } from "sonner";
-import { z } from "zod";
-import type { Route } from "./+types/courses.$slug";
-import { getCurrentUserId } from "~/lib/session";
-import { db } from "~/db";
-import {
-  courses,
-  categories,
-  users,
-  modules,
-  lessons,
-  enrollments,
-  lessonProgress,
-  courseRatings,
-  LessonProgressStatus,
-} from "~/db/schema";
-import { eq, and, or, sql } from "drizzle-orm";
-import { getRefundOffer, type RefundOffer } from "~/lib/refunds.server";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-  TabsContentNoShift,
-} from "~/components/ui/tabs";
+import { and, eq, or, sql } from "drizzle-orm";
 import {
   AlertTriangle,
   BookOpen,
@@ -38,17 +9,48 @@ import {
   PlayCircle,
   Users,
 } from "lucide-react";
-import { CourseImage } from "~/components/course-image";
-import { UserAvatar } from "~/components/user-avatar";
-import { Textarea } from "~/components/ui/textarea";
+import { useEffect, useState } from "react";
+import { Link, useFetcher, useSearchParams } from "react-router";
 import { data, isRouteErrorResponse } from "react-router";
-import { formatDuration, formatPrice } from "~/lib/utils";
-import { renderMarkdown } from "~/lib/markdown.server";
-import { resolveCountry } from "~/lib/country.server";
-import { calculatePppPrice, getCountryTierInfo } from "~/lib/ppp";
-import { parseFormData } from "~/lib/validation";
-import { MAX_RATING, MIN_RATING } from "~/lib/ratings";
+import { toast } from "sonner";
+import { z } from "zod";
+
+import { CourseImage } from "~/components/course-image";
 import { StarRating, StarRatingInput } from "~/components/star-rating";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { Skeleton } from "~/components/ui/skeleton";
+import {
+  Tabs,
+  TabsContent,
+  TabsContentNoShift,
+  TabsList,
+  TabsTrigger,
+} from "~/components/ui/tabs";
+import { Textarea } from "~/components/ui/textarea";
+import { UserAvatar } from "~/components/user-avatar";
+import { db } from "~/db";
+import {
+  categories,
+  courseRatings,
+  courses,
+  enrollments,
+  lessonProgress,
+  LessonProgressStatus,
+  lessons,
+  modules,
+  users,
+} from "~/db/schema";
+import { resolveCountry } from "~/lib/country.server";
+import { renderMarkdown } from "~/lib/markdown.server";
+import { calculatePppPrice, getCountryTierInfo } from "~/lib/ppp";
+import { MAX_RATING, MIN_RATING } from "~/lib/ratings";
+import { getRefundOffer, type RefundOffer } from "~/lib/refunds.server";
+import { getCurrentUserId } from "~/lib/session";
+import { formatDuration, formatPrice } from "~/lib/utils";
+import { parseFormData } from "~/lib/validation";
+
+import type { Route } from "./+types/courses.$slug";
 
 function getCourseBySlug(slug: string) {
   return db.select().from(courses).where(eq(courses.slug, slug)).get();
@@ -287,10 +289,10 @@ function getNextIncompleteLesson(userId: number, courseId: number) {
   return null;
 }
 
-type CourseRatingSummary = {
+interface CourseRatingSummary {
   average: number | null;
   count: number;
-};
+}
 
 const EMPTY_SUMMARY: CourseRatingSummary = { average: null, count: 0 };
 
@@ -392,7 +394,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
   let enrolled = false;
   let progress = 0;
-  let lessonProgressMap: Record<number, string> = {};
+  const lessonProgressMap: Record<number, string> = {};
   let nextLessonId: number | null = null;
   let refundOffer: RefundOffer | null = null;
 

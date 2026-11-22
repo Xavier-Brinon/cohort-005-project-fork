@@ -1,17 +1,19 @@
 ## Verification checks
 
-Do these checks in this order before you report a change to `app/` as complete:
+Run `node --run check` before you report a change as complete; `node --run format` fixes formatting failures. After a change to `app/`, also run `node --run test:mutation`.
 
-1. `aube run typecheck`
-2. `aube run test`
-3. `aube run lint` and `aube run format:check`
+Fix a lint failure in the code. `oxlint-suppressions.json`, `boolean-names-suppressions.json` and `.dependency-cruiser-known-violations.json` only shrink: after fixing an old violation, run `node --run lint:prune` or `node --run lint:boundaries:baseline`.
+
+## Modules
+
+Modules are deep modules: see [app/modules/README.md](./app/modules/README.md) before adding or importing one.
 
 ## When something breaks
 
 | Symptom                                         | Cause                                                                                                  |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 401 "Select a user from the DevUI panel"        | No user in the session — switch users and country in the floating panel (`app/components/dev-ui.tsx`). |
-| `tsc` reports every `./+types/*` import missing | Typegen has not run. Use `aube run typecheck`, which runs `react-router typegen` first.                |
+| `tsc` reports every `./+types/*` import missing | Typegen has not run. Use `node --run typecheck`, which runs `react-router typegen` first.              |
 
 ## Agent skills
 

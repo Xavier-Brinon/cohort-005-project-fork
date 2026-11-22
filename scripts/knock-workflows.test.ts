@@ -2,20 +2,21 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
 import { findDrift, loadLocalWorkflows } from "./knock-workflows";
 
-function workflowsDir(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), "knock-workflows-"));
+function workflowsDirectory(files: Record<string, string>): string {
+  const directory = mkdtempSync(join(tmpdir(), "knock-workflows-"));
   for (const [path, contents] of Object.entries(files)) {
-    mkdirSync(join(dir, path, ".."), { recursive: true });
-    writeFileSync(join(dir, path), contents);
+    mkdirSync(join(directory, path, ".."), { recursive: true });
+    writeFileSync(join(directory, path), contents);
   }
-  return dir;
+  return directory;
 }
 
 describe("loadLocalWorkflows", () => {
   it("inlines @ file references the way the Knock CLI does", () => {
-    const dir = workflowsDir({
+    const directory = workflowsDirectory({
       "greeting/workflow.json": JSON.stringify({
         name: "Greeting",
         steps: [
@@ -30,7 +31,7 @@ describe("loadLocalWorkflows", () => {
         "Hello **{{ recipient.name }}**\n",
     });
 
-    expect(loadLocalWorkflows(dir)).toEqual([
+    expect(loadLocalWorkflows(directory)).toEqual([
       {
         key: "greeting",
         workflow: {
@@ -48,7 +49,7 @@ describe("loadLocalWorkflows", () => {
   });
 
   it("drops the metadata `knock workflow pull` writes, so a pulled workflow shows no drift", () => {
-    const dir = workflowsDir({
+    const directory = workflowsDirectory({
       "greeting/workflow.json": JSON.stringify({
         $schema: "https://schemas.knock.app/cli/workflow.json",
         name: "Greeting",
@@ -63,7 +64,7 @@ describe("loadLocalWorkflows", () => {
         __readonly: { key: "greeting", active: true, valid: true },
       }),
     });
-    const [{ workflow }] = loadLocalWorkflows(dir);
+    const [{ workflow }] = loadLocalWorkflows(directory);
 
     expect(workflow).toEqual({
       name: "Greeting",
@@ -94,8 +95,8 @@ describe("loadLocalWorkflows", () => {
   });
 
   it("rejects a workflow.json without a name or steps", () => {
-    const dir = workflowsDir({ "broken/workflow.json": "{}" });
-    expect(() => loadLocalWorkflows(dir)).toThrow("broken/workflow.json");
+    const directory = workflowsDirectory({ "broken/workflow.json": "{}" });
+    expect(() => loadLocalWorkflows(directory)).toThrow("broken/workflow.json");
   });
 
   it("loads every workflow in the repo with its template inlined", () => {

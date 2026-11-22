@@ -16,22 +16,23 @@
  * Zero runtime dependencies — Node built-ins only.
  */
 
+import fs from "node:fs";
 import http from "node:http";
 import https from "node:https";
-import fs from "node:fs";
 import path from "node:path";
 import type { Duplex } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { styleText } from "node:util";
-import { renderMarkdown } from "./render.ts";
+
 import {
-  resolveChoice,
-  shouldLogRequest,
   type AgentChoice,
   type CustomTarget,
+  resolveChoice,
   type ResolvedTarget,
-} from "./agents.ts";
-import { askChoice, clearChoice, loadChoice, saveChoice } from "./config.ts";
+  shouldLogRequest,
+} from "./agents";
+import { askChoice, clearChoice, loadChoice, saveChoice } from "./config";
+import { renderMarkdown } from "./render";
 
 /**
  * A resolved target the proxy can actually route to and render: a catalogue

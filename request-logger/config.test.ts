@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { clearChoice, loadChoice, saveChoice } from "./config.ts";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { clearChoice, loadChoice, saveChoice } from "./config";
 
 let dir: string;
 let file: string;

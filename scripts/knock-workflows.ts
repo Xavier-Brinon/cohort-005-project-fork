@@ -13,9 +13,16 @@ import KnockMgmt from "@knocklabs/mgmt";
 
 type WorkflowRequest = KnockMgmt.WorkflowRequest;
 
-export type LocalWorkflow = { key: string; workflow: WorkflowRequest };
+export interface LocalWorkflow {
+  key: string;
+  workflow: WorkflowRequest;
+}
 
-export type Drift = { path: string; local: unknown; remote: unknown };
+export interface Drift {
+  path: string;
+  local: unknown;
+  remote: unknown;
+}
 
 const FILE_REFERENCE_SUFFIX = "@";
 
@@ -25,9 +32,12 @@ const CLI_METADATA_KEYS = new Set(["__readonly", "$schema"]);
 
 // The CLI layout stores long fields in files: `"markdown_body@": "in_app_feed_1/markdown_body.md"`.
 // The API wants the contents inline under the key without the `@`.
-function inlineFileReferences(value: unknown, workflowDir: string): unknown {
+function inlineFileReferences(
+  value: unknown,
+  workflowDirectory: string
+): unknown {
   if (Array.isArray(value)) {
-    return value.map((item) => inlineFileReferences(item, workflowDir));
+    return value.map((item) => inlineFileReferences(item, workflowDirectory));
   }
   if (value === null || typeof value !== "object") return value;
 
@@ -38,25 +48,27 @@ function inlineFileReferences(value: unknown, workflowDir: string): unknown {
         if (key.endsWith(FILE_REFERENCE_SUFFIX) && typeof field === "string") {
           return [
             key.slice(0, -FILE_REFERENCE_SUFFIX.length),
-            readFileSync(join(workflowDir, field), "utf8"),
+            readFileSync(join(workflowDirectory, field), "utf8"),
           ];
         }
-        return [key, inlineFileReferences(field, workflowDir)];
+        return [key, inlineFileReferences(field, workflowDirectory)];
       })
   );
 }
 
-export function loadLocalWorkflows(workflowsDir: string): LocalWorkflow[] {
-  return readdirSync(workflowsDir, { withFileTypes: true })
+export function loadLocalWorkflows(
+  workflowsDirectory: string
+): LocalWorkflow[] {
+  return readdirSync(workflowsDirectory, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort()
     .map((key) => {
-      const workflowDir = join(workflowsDir, key);
+      const workflowDirectory = join(workflowsDirectory, key);
       const raw: unknown = JSON.parse(
-        readFileSync(join(workflowDir, "workflow.json"), "utf8")
+        readFileSync(join(workflowDirectory, "workflow.json"), "utf8")
       );
-      const workflow = inlineFileReferences(raw, workflowDir);
+      const workflow = inlineFileReferences(raw, workflowDirectory);
       if (!isWorkflowRequest(workflow)) {
         throw new Error(`${key}/workflow.json needs a name and a steps array`);
       }
@@ -104,9 +116,9 @@ export function findDrift(local: unknown, remote: unknown, path = ""): Drift[] {
   return Object.is(local, remote) ? [] : [{ path, local, remote }];
 }
 
-function readEnvironment(args: string[]): string {
-  const flag = args.indexOf("--environment");
-  return flag === -1 ? "development" : (args[flag + 1] ?? "development");
+function readEnvironment(arguments_: string[]): string {
+  const flag = arguments_.indexOf("--environment");
+  return flag === -1 ? "development" : (arguments_[flag + 1] ?? "development");
 }
 
 async function check(environment: string): Promise<boolean> {
@@ -114,9 +126,9 @@ async function check(environment: string): Promise<boolean> {
   const local = loadLocalWorkflows(
     join(import.meta.dirname, "../.knock/workflows")
   );
-  let ok = true;
+  let isInSync = true;
   const fail = (message: string) => {
-    ok = false;
+    isInSync = false;
     console.error(`✗ ${message}`);
   };
 
@@ -152,11 +164,11 @@ async function check(environment: string): Promise<boolean> {
       fail(`${remote.key}: in ${environment} but not in .knock/workflows`);
     }
   }
-  return ok;
+  return isInSync;
 }
 
 if (import.meta.main) {
-  const [command, ...args] = process.argv.slice(2);
+  const [command, ...arguments_] = process.argv.slice(2);
   if (command !== "check") {
     console.error(
       "Usage: node scripts/knock-workflows.ts check [--environment <slug>]"
@@ -169,7 +181,7 @@ if (import.meta.main) {
     );
     process.exit(2);
   }
-  const environment = readEnvironment(args);
+  const environment = readEnvironment(arguments_);
   console.log(`Checking .knock/workflows against Knock ${environment}`);
   process.exit((await check(environment)) ? 0 : 1);
 }

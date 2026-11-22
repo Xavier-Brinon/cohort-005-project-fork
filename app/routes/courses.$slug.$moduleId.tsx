@@ -1,22 +1,4 @@
-import { Link } from "react-router";
-import type { Route } from "./+types/courses.$slug.$moduleId";
-import { getCurrentUserId } from "~/lib/session";
-import { db } from "~/db";
-import {
-  categories,
-  courses,
-  enrollments,
-  lessonProgress,
-  lessons,
-  modules,
-  users,
-  LessonProgressStatus,
-} from "~/db/schema";
 import { and, eq, or } from "drizzle-orm";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
-import { UserAvatar } from "~/components/user-avatar";
 import {
   AlertTriangle,
   BookOpen,
@@ -27,9 +9,29 @@ import {
   PlayCircle,
   Video,
 } from "lucide-react";
+import { Link } from "react-router";
 import { data, isRouteErrorResponse } from "react-router";
-import { formatDuration } from "~/lib/utils";
 import { z } from "zod";
+
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { Skeleton } from "~/components/ui/skeleton";
+import { UserAvatar } from "~/components/user-avatar";
+import { db } from "~/db";
+import {
+  categories,
+  courses,
+  enrollments,
+  lessonProgress,
+  LessonProgressStatus,
+  lessons,
+  modules,
+  users,
+} from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+import { formatDuration } from "~/lib/utils";
+
+import type { Route } from "./+types/courses.$slug.$moduleId";
 
 const paramsSchema = z.object({
   slug: z.string().min(1),
@@ -189,7 +191,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const currentUserId = await getCurrentUserId(request);
 
   let enrolled = false;
-  let lessonProgressMap: Record<number, string> = {};
+  const lessonProgressMap: Record<number, string> = {};
 
   if (currentUserId) {
     enrolled = isUserEnrolled(currentUserId, course.id);

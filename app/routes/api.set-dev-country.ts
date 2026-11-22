@@ -1,8 +1,11 @@
 import { redirect } from "react-router";
 import { z } from "zod";
-import type { Route } from "./+types/api.set-dev-country";
+
+import { safeRedirectPath } from "~/lib/redirects";
 import { setDevCountry } from "~/lib/session";
 import { parseFormData } from "~/lib/validation";
+
+import type { Route } from "./+types/api.set-dev-country";
 
 const setDevCountrySchema = z.object({
   country: z
@@ -20,7 +23,7 @@ export async function action({ request, url }: Route.ActionArgs) {
 
   const cookie = await setDevCountry(request, country);
 
-  return redirect(url.searchParams.get("redirectTo") ?? "/", {
+  return redirect(safeRedirectPath(url.searchParams.get("redirectTo"), "/"), {
     headers: { "Set-Cookie": cookie },
   });
 }

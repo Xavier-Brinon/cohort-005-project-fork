@@ -1,20 +1,22 @@
-import {
-  createContext,
-  useContext,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
-import { useNavigate } from "react-router";
+import "@knocklabs/react/dist/index.css";
+
 import {
   KnockFeedProvider,
   KnockProvider,
   NotificationFeedPopover,
   NotificationIconButton,
 } from "@knocklabs/react";
-import "@knocklabs/react/dist/index.css";
 import { Bell } from "lucide-react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useNavigate } from "react-router";
+
 import type { NotificationFeedProps } from "~/lib/notification-feed.server";
 
 // ─── Notification bell ───
@@ -51,9 +53,9 @@ export function NotificationFeedBoundary({
   feed: NotificationFeedProps | null;
   children: ReactNode;
 }) {
-  const hydrated = useHydrated();
+  const isHydrated = useHydrated();
   if (!feed) return <BellContext value="none">{children}</BellContext>;
-  if (!hydrated) return <BellContext value="static">{children}</BellContext>;
+  if (!isHydrated) return <BellContext value="static">{children}</BellContext>;
   return (
     <KnockProvider
       apiKey={feed.apiKey}
@@ -76,17 +78,17 @@ export function NotificationBell() {
 
 function LiveBell() {
   const [isOpen, setIsOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonReference = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
 
   return (
     <div className="cadence-knock">
       <NotificationIconButton
-        ref={buttonRef}
-        onClick={() => setIsOpen((open) => !open)}
+        ref={buttonReference}
+        onClick={() => setIsOpen((wasOpen) => !wasOpen)}
       />
       <NotificationFeedPopover
-        buttonRef={buttonRef}
+        buttonRef={buttonReference}
         isVisible={isOpen}
         onClose={() => setIsOpen(false)}
         placement="right-start"

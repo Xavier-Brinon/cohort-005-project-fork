@@ -1,4 +1,5 @@
 import { signUserToken } from "@knocklabs/node";
+
 import type { Person } from "~/lib/notifications.server";
 
 // ─── Notification feed (the bell) ───
@@ -10,20 +11,20 @@ import type { Person } from "~/lib/notifications.server";
 
 const TOKEN_LIFETIME_SECONDS = 60 * 60;
 
-export type FeedConfig = {
+export interface FeedConfig {
   publicKey: string | undefined;
   feedChannelId: string | undefined;
   signingKey: string | undefined;
-};
+}
 
-export type NotificationFeedProps = {
+export interface NotificationFeedProps {
   apiKey: string;
   feedChannelId: string;
   userId: string;
   userToken: string;
-};
+}
 
-export function feedConfigFromEnv(): FeedConfig {
+export function feedConfigFromEnvironment(): FeedConfig {
   return {
     publicKey: process.env.KNOCK_PUBLIC_API_KEY,
     feedChannelId: process.env.KNOCK_FEED_CHANNEL_ID,
@@ -35,7 +36,7 @@ export function feedConfigFromEnv(): FeedConfig {
 // Knock is not configured.
 export async function notificationFeedProps(
   user: Person | null,
-  config: FeedConfig = feedConfigFromEnv()
+  config: FeedConfig = feedConfigFromEnvironment()
 ): Promise<NotificationFeedProps | null> {
   if (!user) return null;
   const { publicKey, feedChannelId, signingKey } = config;

@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import {
   Form,
   Link,
@@ -5,17 +6,19 @@ import {
   useNavigation,
   useSearchParams,
 } from "react-router";
-import { redirect, data } from "react-router";
+import { data, redirect } from "react-router";
 import { z } from "zod";
-import type { Route } from "./+types/login";
-import { setCurrentUserId, getCurrentUserId } from "~/lib/session";
-import { parseFormData } from "~/lib/validation";
+
 import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
 import { Card, CardContent } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
 import { db } from "~/db";
 import { users } from "~/db/schema";
-import { eq } from "drizzle-orm";
+import { safeRedirectPath } from "~/lib/redirects";
+import { getCurrentUserId, setCurrentUserId } from "~/lib/session";
+import { parseFormData } from "~/lib/validation";
+
+import type { Route } from "./+types/login";
 
 const loginSchema = z.object({
   email: z
@@ -36,9 +39,10 @@ export function meta() {
 export async function loader({ request, url }: Route.LoaderArgs) {
   const currentUserId = await getCurrentUserId(request);
   if (currentUserId) {
-    const redirectTo = url.searchParams.get("redirectTo");
-    const destination =
-      redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+    const destination = safeRedirectPath(
+      url.searchParams.get("redirectTo"),
+      "/courses"
+    );
     throw redirect(destination);
   }
   return {};
@@ -71,9 +75,10 @@ export async function action({ request, url }: Route.ActionArgs) {
     );
   }
 
-  const redirectTo = url.searchParams.get("redirectTo");
-  const destination =
-    redirectTo && redirectTo.startsWith("/") ? redirectTo : "/courses";
+  const destination = safeRedirectPath(
+    url.searchParams.get("redirectTo"),
+    "/courses"
+  );
 
   const cookie = await setCurrentUserId(request, user.id);
   throw redirect(destination, {

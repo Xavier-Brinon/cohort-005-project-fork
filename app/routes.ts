@@ -1,8 +1,8 @@
 import {
-  type RouteConfig,
   index,
-  route,
   layout,
+  route,
+  type RouteConfig,
 } from "@react-router/dev/routes";
 
 export default [
@@ -44,6 +44,7 @@ export default [
     route("admin/courses", "routes/admin.courses.tsx"),
     route("admin/categories", "routes/admin.categories.tsx"),
     route("admin/refunds", "routes/admin.refunds.tsx"),
+    route("saved", "routes/saved.tsx"),
     route("settings", "routes/settings.tsx"),
     route("team", "routes/team.tsx"),
     route("redeem/:code", "routes/redeem.$code.tsx"),

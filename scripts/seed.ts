@@ -1,23 +1,30 @@
 import Database from "better-sqlite3";
-import { eq, gte, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { eq, gte, isNotNull, isNull, type SQL, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import { existsSync } from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as schema from "../app/db/schema.ts";
+
+import * as schema from "../app/db/schema";
 import {
-  UserRole,
   CourseStatus,
   LessonProgressStatus,
-  RefundStatus,
   QuestionType,
+  RefundStatus,
   TeamMemberRole,
-} from "../app/db/schema.ts";
+  UserRole,
+} from "../app/db/schema";
+import { markdown } from "../app/lib/text";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const migrationsFolder = path.resolve(__dirname, "../drizzle");
+
+// Runs under tsx, not Vite, so load .env for the Knock keys ourselves.
+const envFile = path.resolve(__dirname, "../.env");
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const sqlite = new Database("data.db");
 sqlite.pragma("journal_mode = WAL");
@@ -65,6 +72,8 @@ async function seed() {
 
   // Drop and recreate tables for a clean seed
   sqlite.exec(`
+    DROP TABLE IF EXISTS bookmarks;
+    DROP TABLE IF EXISTS notes;
     DROP TABLE IF EXISTS comments;
     DROP TABLE IF EXISTS course_ratings;
     DROP TABLE IF EXISTS video_watch_events;
@@ -314,15 +323,18 @@ async function seed() {
 
   // ─── Course content ───
 
-  type LessonSpec = {
+  interface LessonSpec {
     title: string;
     duration: number;
     videoUrl?: string;
     githubRepoUrl?: string;
     content?: string;
-  };
+  }
 
-  type ModuleSpec = { title: string; lessons: LessonSpec[] };
+  interface ModuleSpec {
+    title: string;
+    lessons: LessonSpec[];
+  }
 
   // Inserts a course's modules and lessons in order and returns the lesson ids,
   // flattened module by module. Positions are 1-based.
@@ -353,7 +365,7 @@ async function seed() {
           .values({
             moduleId: mod.id,
             title: lessonData.title,
-            content: lessonData.content ?? null,
+            content: lessonData.content ? markdown(lessonData.content) : null,
             videoUrl: lessonData.videoUrl ?? null,
             githubRepoUrl: lessonData.githubRepoUrl ?? null,
             position: li + 1,
@@ -378,7 +390,7 @@ async function seed() {
       slug: "introduction-to-typescript",
       description:
         "Master TypeScript from the ground up. Learn type annotations, interfaces, generics, and advanced patterns that will make your JavaScript code safer and more maintainable. Includes hands-on projects and real-world examples.",
-      salesCopy: `## Why TypeScript?
+      salesCopy: markdown(`## Why TypeScript?
 
 If you've been writing JavaScript and wondering why your code breaks in production with cryptic "undefined is not a function" errors, TypeScript is the answer you've been looking for.
 
@@ -407,7 +419,7 @@ No prior TypeScript experience required — just a solid understanding of JavaSc
 
 Unlike courses that just show you syntax, this course focuses on *thinking in types*. You'll learn to design your types first and let them guide your implementation, catching entire categories of bugs at compile time instead of runtime.
 
-By the end of this course, you'll understand why TypeScript has become the default choice for serious JavaScript development.`,
+By the end of this course, you'll understand why TypeScript has become the default choice for serious JavaScript development.`),
       instructorId: instructor1.id,
       categoryId: catBySlug["programming"].id,
       status: CourseStatus.Published,
@@ -799,7 +811,7 @@ Practice by converting an existing JavaScript project to TypeScript. Start with 
       slug: "building-rest-apis-with-nodejs",
       description:
         "Learn to build production-ready REST APIs using Node.js and Express. Covers routing, middleware, authentication, database integration, error handling, testing, and deployment best practices.",
-      salesCopy: `## Build APIs That Actually Work in Production
+      salesCopy: markdown(`## Build APIs That Actually Work in Production
 
 Most API tutorials teach you how to return JSON from an endpoint. This course teaches you how to build APIs that handle real traffic, real users, and real problems — the kind you'll face on the job.
 
@@ -833,7 +845,7 @@ Express is the most widely-used Node.js web framework for a reason — it's mini
 
 ## 20 Lessons, 5 Modules, Zero Fluff
 
-Every lesson is focused and practical. No 45-minute lectures where 40 minutes are filler. Each lesson teaches one concept, shows you how to implement it, and moves on.`,
+Every lesson is focused and practical. No 45-minute lectures where 40 minutes are filler. Each lesson teaches one concept, shows you how to implement it, and moves on.`),
       instructorId: instructor2.id,
       categoryId: catBySlug["programming"].id,
       status: CourseStatus.Published,
@@ -1267,7 +1279,7 @@ You've completed the Building REST APIs course. You now have the skills to build
       slug: "design-systems-with-tailwind",
       description:
         "Build a design system that survives contact with a real product team. Tokens, component APIs, theming, and the discipline that keeps a system from rotting into a component graveyard.",
-      salesCopy: `## Design Systems That Survive
+      salesCopy: markdown(`## Design Systems That Survive
 
 Most design systems die the same way: a beautiful component library nobody uses, drifting out of sync with the product it was meant to serve.
 
@@ -1282,7 +1294,7 @@ This course is about the other kind — the system your team reaches for because
 
 ## Who Is This For?
 
-Frontend developers who have built components before and watched the collection turn into a mess. Tailwind experience helps but is not required.`,
+Frontend developers who have built components before and watched the collection turn into a mess. Tailwind experience helps but is not required.`),
       instructorId: instructor1.id,
       categoryId: catBySlug["design"].id,
       status: CourseStatus.Published,
@@ -1395,7 +1407,7 @@ Frontend developers who have built components before and watched the collection 
       slug: "practical-data-visualisation",
       description:
         "Turn data into charts people can actually read. Chart selection, scales, colour, and the accessibility rules most dashboards break.",
-      salesCopy: `## Charts People Can Read
+      salesCopy: markdown(`## Charts People Can Read
 
 A chart is an argument. This course is about making the argument clearly — picking the right encoding, scaling it honestly, and colouring it so everyone can read it.
 
@@ -1408,7 +1420,7 @@ A chart is an argument. This course is about making the argument clearly — pic
 
 ## Who Is This For?
 
-Developers and analysts who produce charts for other people to act on.`,
+Developers and analysts who produce charts for other people to act on.`),
       instructorId: instructor2.id,
       categoryId: catBySlug["data-science"].id,
       status: CourseStatus.Published,
@@ -1493,7 +1505,7 @@ Developers and analysts who produce charts for other people to act on.`,
       slug: "shipping-with-docker-and-kubernetes",
       description:
         "Containerise an application and run it on Kubernetes without cargo-culting a YAML file you do not understand.",
-      salesCopy: `## From Laptop to Cluster
+      salesCopy: markdown(`## From Laptop to Cluster
 
 Containers made deployment reproducible and Kubernetes made it configurable. This course covers both without pretending either is simple.
 
@@ -1506,7 +1518,7 @@ Containers made deployment reproducible and Kubernetes made it configurable. Thi
 
 ## Status
 
-This course is still in draft while the cluster examples are rewritten against the current API.`,
+This course is still in draft while the cluster examples are rewritten against the current API.`),
       instructorId: instructor2.id,
       categoryId: catBySlug["devops"].id,
       status: CourseStatus.Draft,
@@ -1894,8 +1906,14 @@ This course is still in draft while the cluster examples are rewritten against t
   // deleted question kept as a tombstone because it has a reply.
   // Only enrolled students comment.
 
-  function comment(values: typeof schema.comments.$inferInsert) {
-    const [row] = db.insert(schema.comments).values(values).returning().all();
+  function comment(
+    values: Omit<typeof schema.comments.$inferInsert, "body"> & { body: string }
+  ) {
+    const [row] = db
+      .insert(schema.comments)
+      .values({ ...values, body: markdown(values.body) })
+      .returning()
+      .all();
     return row;
   }
 
@@ -2436,13 +2454,13 @@ This course is still in draft while the cluster examples are rewritten against t
   // reach the second, the observed drop-off at each cliff is much steeper than
   // its roll.
 
-  type SellableCourse = {
+  interface SellableCourse {
     course: typeof course1;
     lessonIds: number[];
     // [bigCliffIndex, secondCliffIndex] — the lesson a stopping student last
     // completed.
     cliffs: [number, number];
-  };
+  }
 
   const sellableCourses: SellableCourse[] = [
     { course: course1, lessonIds: course1LessonIds, cliffs: [8, 13] },
@@ -2559,7 +2577,8 @@ This course is still in draft while the cluster examples are rewritten against t
     if (roll < 0.12) {
       // Bought it and never opened it.
       return 0;
-    } else if (roll < 0.5) {
+    }
+    if (roll < 0.5) {
       stopIndex = cliffs[0];
     } else if (roll < 0.72) {
       stopIndex = cliffs[1];

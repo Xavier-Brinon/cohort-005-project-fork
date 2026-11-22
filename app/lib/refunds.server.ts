@@ -9,44 +9,39 @@ import {
   sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
+
 import type { Db, Queryable } from "~/db";
 import {
   coupons,
   courses,
   enrollments,
   lessonProgress,
+  LessonProgressStatus,
   lessons,
   modules,
   purchases,
   refunds,
-  users,
-  videoWatchEvents,
-  LessonProgressStatus,
   RefundStatus,
   UserRole,
+  users,
+  videoWatchEvents,
 } from "~/db/schema";
-import { formatPrice } from "~/lib/utils";
-import { findPerson, toPerson } from "~/lib/people.server";
 import {
   excerpt,
   type MarkReadIntent,
   type NotifyIntent,
 } from "~/lib/notifications.server";
+import { findPerson, toPerson } from "~/lib/people.server";
 import {
+  type PurchaseKind,
   REFUND_COMPLETION_LIMIT,
   REFUND_WATCH_LIMIT_SECONDS,
   REFUND_WINDOW_DAYS,
-  type PurchaseKind,
   type RuleBreak,
 } from "~/lib/refund-rules";
+import { formatPrice } from "~/lib/utils";
 
-// ─── Refunds ───
-// Everything about Refund Requests: whether a Purchase may be refunded, raising
-// a Refund Request, and a Platform Admin deciding one. See GLOSSARY.md for the
-// language and docs/adr/0001–0004 for why it works the way it does.
-//
-// Every function takes the database first, so tests can hand in an in-memory
-// one. Uses positional parameters (project convention).
+// docs/adr/0001–0004 explain why Refunds work the way they do.
 
 type Purchase = typeof purchases.$inferSelect;
 type Seat = typeof coupons.$inferSelect;
@@ -55,15 +50,17 @@ type Seat = typeof coupons.$inferSelect;
 
 // The fourteen-day window is counted in whole days, not hours — someone who
 // buys at 23:00 should still get the whole of their fourteenth day.
+//
+// Days are UTC days, the same days as the date prefix of the ISO timestamps we
+// store. Reading the server's local zone would make the answer depend on where
+// the process happens to run, and disagree with analytics' UTC day buckets.
 export function calendarDay(when: Date): string {
-  const month = String(when.getMonth() + 1).padStart(2, "0");
-  const day = String(when.getDate()).padStart(2, "0");
-  return `${when.getFullYear()}-${month}-${day}`;
+  return when.toISOString().slice(0, 10);
 }
 
 export function lastDayOfWindow(purchasedAtIso: string): string {
   const deadline = new Date(purchasedAtIso);
-  deadline.setDate(deadline.getDate() + REFUND_WINDOW_DAYS);
+  deadline.setUTCDate(deadline.getUTCDate() + REFUND_WINDOW_DAYS);
   return calendarDay(deadline);
 }
 
@@ -77,12 +74,16 @@ function isWithinWindow(purchasedAtIso: string, on: Date): boolean {
 
 // ─── Purchases and Seats ───
 
-function getPurchase(db: Queryable, purchaseId: number) {
-  return db.select().from(purchases).where(eq(purchases.id, purchaseId)).get();
+function getPurchase(database: Queryable, purchaseId: number) {
+  return database
+    .select()
+    .from(purchases)
+    .where(eq(purchases.id, purchaseId))
+    .get();
 }
 
-function getSeats(db: Queryable, purchaseId: number): Seat[] {
-  return db
+function getSeats(database: Queryable, purchaseId: number): Seat[] {
+  return database
     .select()
     .from(coupons)
     .where(eq(coupons.purchaseId, purchaseId))
@@ -100,11 +101,11 @@ function kindOf(seats: Seat[]): PurchaseKind {
 }
 
 function getRefundRequestWithStatus(
-  db: Queryable,
+  database: Queryable,
   purchaseId: number,
   status: RefundStatus
 ) {
-  return db
+  return database
     .select()
     .from(refunds)
     .where(and(eq(refunds.purchaseId, purchaseId), eq(refunds.status, status)))
@@ -119,12 +120,14 @@ export type SeatAvailability = "available" | "claimed" | "on_hold" | "refunded";
  * that request is approved.
  */
 export function getSeatAvailability(
-  db: Queryable,
+  database: Queryable,
   seat: Seat
 ): SeatAvailability {
   if (isClaimed(seat)) return "claimed";
   if (seat.refundedAt !== null) return "refunded";
-  if (getRefundRequestWithStatus(db, seat.purchaseId, RefundStatus.Open)) {
+  if (
+    getRefundRequestWithStatus(database, seat.purchaseId, RefundStatus.Open)
+  ) {
     return "on_hold";
   }
   return "available";
@@ -132,8 +135,8 @@ export function getSeatAvailability(
 
 // ─── Figures and rules ───
 
-function getLessonIds(db: Queryable, courseId: number): number[] {
-  return db
+function getLessonIds(database: Queryable, courseId: number): number[] {
+  return database
     .select({ id: lessons.id })
     .from(lessons)
     .innerJoin(modules, eq(lessons.moduleId, modules.id))
@@ -143,13 +146,13 @@ function getLessonIds(db: Queryable, courseId: number): number[] {
 }
 
 function getCompletedLessonCount(
-  db: Queryable,
+  database: Queryable,
   userId: number,
   lessonIds: number[]
 ) {
   if (lessonIds.length === 0) return 0;
 
-  const result = db
+  const result = database
     .select({ count: sql<number>`count(*)` })
     .from(lessonProgress)
     .where(
@@ -164,10 +167,14 @@ function getCompletedLessonCount(
   return result?.count ?? 0;
 }
 
-function getSecondsWatched(db: Queryable, userId: number, lessonIds: number[]) {
+function getSecondsWatched(
+  database: Queryable,
+  userId: number,
+  lessonIds: number[]
+) {
   if (lessonIds.length === 0) return 0;
 
-  const furthestPerLesson = db
+  const furthestPerLesson = database
     .select({
       furthest: sql<number>`max(${videoWatchEvents.positionSeconds})`,
     })
@@ -202,8 +209,11 @@ export type RefundFigures =
       claimedSeatCount: number;
     };
 
-function getRefundFigures(db: Queryable, purchase: Purchase): RefundFigures {
-  const seats = getSeats(db, purchase.id);
+function getRefundFigures(
+  database: Queryable,
+  purchase: Purchase
+): RefundFigures {
+  const seats = getSeats(database, purchase.id);
 
   if (kindOf(seats) === "team_licence") {
     return {
@@ -213,12 +223,16 @@ function getRefundFigures(db: Queryable, purchase: Purchase): RefundFigures {
     };
   }
 
-  const lessonIds = getLessonIds(db, purchase.courseId);
+  const lessonIds = getLessonIds(database, purchase.courseId);
   return {
     kind: "individual_purchase",
-    lessonsCompleted: getCompletedLessonCount(db, purchase.userId, lessonIds),
+    lessonsCompleted: getCompletedLessonCount(
+      database,
+      purchase.userId,
+      lessonIds
+    ),
     lessonCount: lessonIds.length,
-    secondsWatched: getSecondsWatched(db, purchase.userId, lessonIds),
+    secondsWatched: getSecondsWatched(database, purchase.userId, lessonIds),
   };
 }
 
@@ -268,11 +282,11 @@ function findRuleBreaks(
 
 // ─── Raising a Refund Request ───
 
-export type Failure = {
+export interface Failure {
   ok: false;
   status: 400 | 403 | 404 | 409;
   error: string;
-};
+}
 
 type RefundCheck = { ok: true; purchase: Purchase } | Failure;
 
@@ -281,18 +295,18 @@ type RefundCheck = { ok: true; purchase: Purchase } | Failure;
  * the person who paid may, and only one Refund Request can be open at once.
  */
 export function checkRefundRequest(
-  db: Queryable,
+  database: Queryable,
   purchaseId: number,
   buyerId: number,
   now: Date
 ): RefundCheck {
-  const purchase = getPurchase(db, purchaseId);
+  const purchase = getPurchase(database, purchaseId);
 
   if (!purchase || purchase.userId !== buyerId) {
     return { ok: false, status: 404, error: "Purchase not found." };
   }
 
-  if (getRefundRequestWithStatus(db, purchase.id, RefundStatus.Open)) {
+  if (getRefundRequestWithStatus(database, purchase.id, RefundStatus.Open)) {
     return {
       ok: false,
       status: 409,
@@ -300,7 +314,9 @@ export function checkRefundRequest(
     };
   }
 
-  if (getRefundRequestWithStatus(db, purchase.id, RefundStatus.Approved)) {
+  if (
+    getRefundRequestWithStatus(database, purchase.id, RefundStatus.Approved)
+  ) {
     return {
       ok: false,
       status: 409,
@@ -310,7 +326,7 @@ export function checkRefundRequest(
 
   const [firstBreak] = findRuleBreaks(
     purchase,
-    getRefundFigures(db, purchase),
+    getRefundFigures(database, purchase),
     now
   );
 
@@ -321,11 +337,11 @@ export function checkRefundRequest(
   return { ok: true, purchase };
 }
 
-export type RefundOffer = {
+export interface RefundOffer {
   purchaseId: number;
   amount: number;
   lastDayInWindow: string;
-};
+}
 
 /**
  * What the course page offers a student who wants their money back: their
@@ -333,12 +349,12 @@ export type RefundOffer = {
  * Licences are refunded from the team page instead.
  */
 export function getRefundOffer(
-  db: Queryable,
+  database: Queryable,
   buyerId: number,
   courseId: number,
   now: Date
 ): RefundOffer | null {
-  const newestFirst = db
+  const newestFirst = database
     .select()
     .from(purchases)
     .where(and(eq(purchases.userId, buyerId), eq(purchases.courseId, courseId)))
@@ -346,12 +362,18 @@ export function getRefundOffer(
     .all();
 
   const individualPurchase = newestFirst.find(
-    (purchase) => kindOf(getSeats(db, purchase.id)) === "individual_purchase"
+    (purchase) =>
+      kindOf(getSeats(database, purchase.id)) === "individual_purchase"
   );
 
   if (!individualPurchase) return null;
 
-  const check = checkRefundRequest(db, individualPurchase.id, buyerId, now);
+  const check = checkRefundRequest(
+    database,
+    individualPurchase.id,
+    buyerId,
+    now
+  );
   if (!check.ok) return null;
 
   return {
@@ -361,7 +383,11 @@ export function getRefundOffer(
   };
 }
 
-export type Email = { to: string; subject: string; body: string };
+export interface Email {
+  to: string;
+  subject: string;
+  body: string;
+}
 
 export type RaiseResult =
   | {
@@ -375,8 +401,8 @@ export type RaiseResult =
 
 // Every Platform Admin, queried when the Refund Request is raised so a new
 // Platform Admin gets the next one.
-function listPlatformAdmins(db: Queryable) {
-  return db
+function listPlatformAdmins(database: Queryable) {
+  return database
     .select({ id: users.id, name: users.name })
     .from(users)
     .where(eq(users.role, UserRole.Admin))
@@ -385,18 +411,18 @@ function listPlatformAdmins(db: Queryable) {
 }
 
 export function raiseRefundRequest(
-  db: Db,
+  database: Db,
   purchaseId: number,
   buyerId: number,
   reason: string,
   now: Date
 ): RaiseResult {
-  const check = checkRefundRequest(db, purchaseId, buyerId, now);
+  const check = checkRefundRequest(database, purchaseId, buyerId, now);
   if (!check.ok) return check;
 
   const { purchase } = check;
-  const buyer = findPerson(db, buyerId);
-  const course = db
+  const buyer = findPerson(database, buyerId);
+  const course = database
     .select()
     .from(courses)
     .where(eq(courses.id, purchase.courseId))
@@ -406,7 +432,7 @@ export function raiseRefundRequest(
     return { ok: false, status: 404, error: "Purchase not found." };
   }
 
-  const refundRequest = db
+  const refundRequest = database
     .insert(refunds)
     .values({
       purchaseId: purchase.id,
@@ -417,7 +443,7 @@ export function raiseRefundRequest(
     .returning()
     .get();
 
-  const kind = kindOf(getSeats(db, purchase.id));
+  const kind = kindOf(getSeats(database, purchase.id));
 
   return {
     ok: true,
@@ -427,7 +453,7 @@ export function raiseRefundRequest(
       {
         type: "refund-request-opened",
         actor: toPerson(buyer),
-        recipients: listPlatformAdmins(db),
+        recipients: listPlatformAdmins(database),
         data: {
           refundRequestId: refundRequest.id,
           buyerName: buyer.name,
@@ -459,8 +485,8 @@ export function raiseRefundRequest(
 
 const deciders = alias(users, "deciders");
 
-function selectRefundRequests(db: Queryable) {
-  return db
+function selectRefundRequests(database: Queryable) {
+  return database
     .select({
       id: refunds.id,
       status: refunds.status,
@@ -482,7 +508,7 @@ function selectRefundRequests(db: Queryable) {
     .leftJoin(deciders, eq(refunds.resolvedByUserId, deciders.id));
 }
 
-export type RefundRequestForReview = {
+export interface RefundRequestForReview {
   id: number;
   status: RefundStatus;
   reason: string;
@@ -500,7 +526,7 @@ export type RefundRequestForReview = {
   figures: RefundFigures;
   ruleBreaks: RuleBreak[];
   canApprove: boolean;
-};
+}
 
 /**
  * The Refund Requests a Platform Admin reviews, oldest first. The figures are
@@ -508,17 +534,17 @@ export type RefundRequestForReview = {
  * course while it is open, so what matters is how far they have got now.
  */
 export function listRefundRequestsForReview(
-  db: Queryable,
+  database: Queryable,
   status: RefundStatus,
   now: Date
 ): RefundRequestForReview[] {
-  const rows = selectRefundRequests(db)
+  const rows = selectRefundRequests(database)
     .where(eq(refunds.status, status))
     .orderBy(asc(refunds.requestedAt), asc(refunds.id))
     .all();
 
   return rows.map((row) => {
-    const figures = getRefundFigures(db, row.purchase);
+    const figures = getRefundFigures(database, row.purchase);
     const ruleBreaks = findRuleBreaks(
       row.purchase,
       figures,
@@ -554,8 +580,11 @@ export function listRefundRequestsForReview(
 }
 
 /** A buyer's own Refund Requests, newest first, for their Settings page. */
-export function listRefundRequestsForBuyer(db: Queryable, buyerId: number) {
-  return selectRefundRequests(db)
+export function listRefundRequestsForBuyer(
+  database: Queryable,
+  buyerId: number
+) {
+  return selectRefundRequests(database)
     .where(eq(purchases.userId, buyerId))
     .orderBy(desc(refunds.requestedAt), desc(refunds.id))
     .all()
@@ -573,8 +602,12 @@ export function listRefundRequestsForBuyer(db: Queryable, buyerId: number) {
 }
 
 /** A Team Admin's Team Licences, with what the team page needs to refund one. */
-export function listTeamLicences(db: Queryable, buyerId: number, now: Date) {
-  const bought = db
+export function listTeamLicences(
+  database: Queryable,
+  buyerId: number,
+  now: Date
+) {
+  const bought = database
     .select({
       purchase: purchases,
       courseTitle: courses.title,
@@ -587,10 +620,10 @@ export function listTeamLicences(db: Queryable, buyerId: number, now: Date) {
     .all();
 
   return bought.flatMap(({ purchase, courseTitle, courseSlug }) => {
-    const seats = getSeats(db, purchase.id);
+    const seats = getSeats(database, purchase.id);
     if (kindOf(seats) !== "team_licence") return [];
 
-    const latestRefundRequest = db
+    const latestRefundRequest = database
       .select({ status: refunds.status, decisionNote: refunds.decisionNote })
       .from(refunds)
       .where(eq(refunds.purchaseId, purchase.id))
@@ -607,7 +640,12 @@ export function listTeamLicences(db: Queryable, buyerId: number, now: Date) {
         seatCount: seats.length,
         claimedSeatCount: seats.filter(isClaimed).length,
         latestRefundRequest: latestRefundRequest ?? null,
-        canRequestRefund: checkRefundRequest(db, purchase.id, buyerId, now).ok,
+        canRequestRefund: checkRefundRequest(
+          database,
+          purchase.id,
+          buyerId,
+          now
+        ).ok,
         lastDayInWindow: lastDayOfWindow(purchase.createdAt),
       },
     ];
@@ -667,13 +705,13 @@ function findOpenRefundRequest(
  *   Seat has been claimed (docs/adr/0003).
  */
 export function approveRefundRequest(
-  db: Db,
+  database: Db,
   refundRequestId: number,
   platformAdminId: number,
   note: string | null,
   now: Date
 ): DecisionResult {
-  return db.transaction((tx): DecisionResult => {
+  return database.transaction((tx): DecisionResult => {
     const found = findOpenRefundRequest(tx, refundRequestId);
     if (!found.ok) return found;
 
@@ -732,10 +770,11 @@ export function approveRefundRequest(
       .where(eq(refunds.id, refundRequestId))
       .run();
 
-    return decisionResult(tx, refundRequestId, purchase, platformAdminId, {
-      status: RefundStatus.Approved,
-      note,
-    });
+    return decisionResult(
+      tx,
+      { refundRequestId, purchase, platformAdminId },
+      { status: RefundStatus.Approved, note }
+    );
   });
 }
 
@@ -745,7 +784,7 @@ export function approveRefundRequest(
  * the buyer learns whether another request is worth raising.
  */
 export function declineRefundRequest(
-  db: Db,
+  database: Db,
   refundRequestId: number,
   platformAdminId: number,
   note: string,
@@ -761,7 +800,7 @@ export function declineRefundRequest(
     };
   }
 
-  return db.transaction((tx): DecisionResult => {
+  return database.transaction((tx): DecisionResult => {
     const found = findOpenRefundRequest(tx, refundRequestId);
     if (!found.ok) return found;
 
@@ -777,19 +816,17 @@ export function declineRefundRequest(
 
     return decisionResult(
       tx,
-      refundRequestId,
-      found.purchase,
-      platformAdminId,
+      { refundRequestId, purchase: found.purchase, platformAdminId },
       { status: RefundStatus.Declined, note: trimmedNote }
     );
   });
 }
 
 // What a Platform Admin decided, and the note they wrote the buyer.
-type Decision = {
+interface Decision {
   status: typeof RefundStatus.Approved | typeof RefundStatus.Declined;
   note: string | null;
-};
+}
 
 /**
  * What a decided Refund Request hands the route: the buyer's email, their
@@ -797,20 +834,22 @@ type Decision = {
  * every Platform Admin's refund-request-opened Notification for it.
  */
 function decisionResult(
-  db: Queryable,
-  refundRequestId: number,
-  purchase: Purchase,
-  platformAdminId: number,
+  database: Queryable,
+  {
+    refundRequestId,
+    purchase,
+    platformAdminId,
+  }: { refundRequestId: number; purchase: Purchase; platformAdminId: number },
   decision: Decision
 ): DecisionResult {
-  const buyer = findPerson(db, purchase.userId);
-  const platformAdmin = findPerson(db, platformAdminId);
-  const course = db
+  const buyer = findPerson(database, purchase.userId);
+  const platformAdmin = findPerson(database, platformAdminId);
+  const course = database
     .select()
     .from(courses)
     .where(eq(courses.id, purchase.courseId))
     .get();
-  const purchaseKind = kindOf(getSeats(db, purchase.id));
+  const purchaseKind = kindOf(getSeats(database, purchase.id));
 
   const notify: NotifyIntent[] =
     buyer && platformAdmin && course

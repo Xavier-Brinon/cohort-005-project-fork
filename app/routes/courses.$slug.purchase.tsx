@@ -1,43 +1,46 @@
-import { Link, useFetcher, redirect, useSearchParams } from "react-router";
-import { useState, useEffect } from "react";
+import crypto from "crypto";
+import { and, eq, or, sql } from "drizzle-orm";
+import { ArrowLeft, BookOpen, Clock, Minus, Plus, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, redirect, useFetcher, useSearchParams } from "react-router";
+import { data } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { Route } from "./+types/courses.$slug.purchase";
-import { getCurrentUserId } from "~/lib/session";
-import { db } from "~/db";
-import {
-  courses,
-  categories,
-  users,
-  modules,
-  lessons,
-  enrollments,
-  purchases,
-  teams,
-  teamMembers,
-  coupons,
-  CourseStatus,
-  TeamMemberRole,
-} from "~/db/schema";
-import { eq, and, or, sql } from "drizzle-orm";
-import crypto from "crypto";
-import { Card, CardContent } from "~/components/ui/card";
+
+import { CourseImage } from "~/components/course-image";
 import { Button } from "~/components/ui/button";
+import { Card, CardContent } from "~/components/ui/card";
 import {
   Tabs,
-  TabsList,
-  TabsTrigger,
   TabsContent,
   TabsContentNoShift,
+  TabsList,
+  TabsTrigger,
 } from "~/components/ui/tabs";
-import { BookOpen, Clock, Users, ArrowLeft, Minus, Plus } from "lucide-react";
-import { CourseImage } from "~/components/course-image";
 import { UserAvatar } from "~/components/user-avatar";
-import { data } from "react-router";
-import { formatDuration, formatPrice } from "~/lib/utils";
+import { db } from "~/db";
+import {
+  categories,
+  coupons,
+  courses,
+  CourseStatus,
+  enrollments,
+  lessons,
+  modules,
+  purchases,
+  TeamMemberRole,
+  teamMembers,
+  teams,
+  users,
+} from "~/db/schema";
 import { resolveCountry } from "~/lib/country.server";
-import { calculatePppPrice, getCountryTierInfo, COUNTRIES } from "~/lib/ppp";
+import { enrollStudent, isEnrolled } from "~/lib/enrollments.server";
+import { calculatePppPrice, COUNTRIES, getCountryTierInfo } from "~/lib/ppp";
+import { getCurrentUserId } from "~/lib/session";
+import { formatDuration, formatPrice } from "~/lib/utils";
 import { parseFormData, parseParams } from "~/lib/validation";
+
+import type { Route } from "./+types/courses.$slug.purchase";
 
 function getCourseBySlug(slug: string) {
   return db.select().from(courses).where(eq(courses.slug, slug)).get();
@@ -118,20 +121,6 @@ function getLessonCountForCourse(courseId: number) {
   return count?.count ?? 0;
 }
 
-function findEnrollment(userId: number, courseId: number) {
-  return db
-    .select()
-    .from(enrollments)
-    .where(
-      and(eq(enrollments.userId, userId), eq(enrollments.courseId, courseId))
-    )
-    .get();
-}
-
-function isUserEnrolled(userId: number, courseId: number) {
-  return !!findEnrollment(userId, courseId);
-}
-
 function getEnrollmentCountForCourse(courseId: number) {
   const result = db
     .select({ count: sql<number>`count(*)` })
@@ -140,41 +129,6 @@ function getEnrollmentCountForCourse(courseId: number) {
     .get();
 
   return result?.count ?? 0;
-}
-
-function enrollUser(
-  userId: number,
-  courseId: number,
-  sendEmail: boolean,
-  skipValidation: boolean
-) {
-  if (!skipValidation) {
-    const existing = findEnrollment(userId, courseId);
-    if (existing) {
-      throw new Error("User is already enrolled in this course");
-    }
-
-    const course = db
-      .select()
-      .from(courses)
-      .where(eq(courses.id, courseId))
-      .get();
-    if (!course) {
-      throw new Error("Course not found");
-    }
-  }
-
-  const enrollment = db
-    .insert(enrollments)
-    .values({ userId, courseId })
-    .returning()
-    .get();
-
-  if (sendEmail) {
-    // Would send welcome email here
-  }
-
-  return enrollment;
 }
 
 function createPurchase(
@@ -296,7 +250,7 @@ export async function loader({ params, request, url }: Route.LoaderArgs) {
 
   const mode = url.searchParams.get("mode");
 
-  const enrolled = isUserEnrolled(currentUserId, course.id);
+  const enrolled = isEnrolled(db, currentUserId, course.id);
 
   if (enrolled && mode !== "team") {
     throw redirect(`/courses/${slug}?already_enrolled=1`);
@@ -364,11 +318,14 @@ export async function action({ params, request }: Route.ActionArgs) {
     : course.price;
 
   if (parsed.data.intent === "confirm-purchase") {
-    if (isUserEnrolled(currentUserId, course.id)) {
+    if (isEnrolled(db, currentUserId, course.id)) {
       throw redirect(`/courses/${slug}`);
     }
     createPurchase(currentUserId, course.id, pppPrice, country);
-    enrollUser(currentUserId, course.id, false, false);
+    const enrolled = enrollStudent(db, currentUserId, course.id, new Date());
+    if (!enrolled.ok) {
+      throw data(enrolled.error, { status: 409 });
+    }
     throw redirect(`/courses/${slug}/welcome`);
   }
 
