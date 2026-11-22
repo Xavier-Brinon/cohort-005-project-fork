@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "path";
@@ -92,10 +93,18 @@ export function seedUser(
     .get();
 }
 
-/** Inserts a published course taught by `instructorId`, in `categoryId`. */
+/**
+ * Inserts a published course taught by `instructorId`, in `categoryId`.
+ * Free unless `price` is given.
+ */
 export function seedCourse(
   testDatabase: TestDb,
-  course: { slug: string; instructorId: number; categoryId: number }
+  course: {
+    slug: string;
+    instructorId: number;
+    categoryId: number;
+    price?: number;
+  }
 ) {
   return testDatabase
     .insert(schema.courses)
@@ -110,19 +119,142 @@ export function seedCourse(
     .get();
 }
 
+type SeededLesson = Partial<
+  Pick<
+    typeof schema.lessons.$inferInsert,
+    "title" | "content" | "videoUrl" | "durationMinutes"
+  >
+>;
+
 /** Inserts a module holding one lesson in `courseId`; returns the lesson. */
-export function seedLesson(testDatabase: TestDb, courseId: number) {
-  const lessonModule = testDatabase
+export function seedLesson(
+  testDatabase: TestDb,
+  courseId: number,
+  lesson: SeededLesson = {}
+) {
+  return seedModule(testDatabase, { courseId, position: 1 }, [lesson])[0];
+}
+
+/** Inserts a module at `position` holding `lessons` in order; returns them. */
+export function seedModule(
+  testDatabase: TestDb,
+  lessonModule: { courseId: number; position: number },
+  lessons: SeededLesson[]
+) {
+  const { id: moduleId } = testDatabase
     .insert(schema.modules)
-    .values({ courseId, title: "Module", position: 1 })
+    .values({ ...lessonModule, title: `Module ${lessonModule.position}` })
     .returning()
     .get();
 
-  return testDatabase
-    .insert(schema.lessons)
-    .values({ moduleId: lessonModule.id, title: "Lesson", position: 1 })
+  return lessons.map((lesson, index) =>
+    testDatabase
+      .insert(schema.lessons)
+      .values({ title: "Lesson", ...lesson, moduleId, position: index + 1 })
+      .returning()
+      .get()
+  );
+}
+
+/** Enrolls `userId` in `courseId`; with `country`, records the purchase there. */
+export function seedEnrollment(
+  testDatabase: TestDb,
+  enrollment: { userId: number; courseId: number; country?: string }
+) {
+  const { userId, courseId, country } = enrollment;
+  testDatabase.insert(schema.enrollments).values({ userId, courseId }).run();
+  if (country !== undefined) {
+    testDatabase
+      .insert(schema.purchases)
+      .values({ userId, courseId, country, amountPaid: 1000 })
+      .run();
+  }
+}
+
+/**
+ * Inserts a quiz on `lessonId` with one question per entry of `questions`,
+ * each listing whether its options are correct. Returns the quiz with its
+ * question and option ids.
+ */
+export function seedQuiz(
+  testDatabase: TestDb,
+  lessonId: number,
+  questions: Array<{ type: schema.QuestionType; options: boolean[] }>
+) {
+  const quiz = testDatabase
+    .insert(schema.quizzes)
+    .values({ lessonId, title: "Quiz", passingScore: 0.7 })
     .returning()
     .get();
+
+  const seeded = questions.map((question, index) => {
+    const { id } = testDatabase
+      .insert(schema.quizQuestions)
+      .values({
+        quizId: quiz.id,
+        questionText: `Question ${index + 1}`,
+        questionType: question.type,
+        position: index + 1,
+      })
+      .returning()
+      .get();
+    const optionIds = question.options.map(
+      (isCorrect, optionIndex) =>
+        testDatabase
+          .insert(schema.quizOptions)
+          .values({
+            questionId: id,
+            optionText: `Option ${optionIndex + 1}`,
+            isCorrect,
+          })
+          .returning()
+          .get().id
+    );
+    return { id, optionIds };
+  });
+
+  return { ...quiz, questions: seeded };
+}
+
+/** Records `userId`'s progress `status` on `lessonId`. */
+export function seedLessonProgress(
+  testDatabase: TestDb,
+  progress: {
+    userId: number;
+    lessonId: number;
+    status: schema.LessonProgressStatus;
+  }
+) {
+  testDatabase.insert(schema.lessonProgress).values(progress).run();
+}
+
+/** Records a video watch event at `positionSeconds`, at `createdAt`. */
+export function seedWatchEvent(
+  testDatabase: TestDb,
+  event: {
+    userId: number;
+    lessonId: number;
+    positionSeconds: number;
+    createdAt: string;
+  }
+) {
+  testDatabase
+    .insert(schema.videoWatchEvents)
+    .values({ ...event, eventType: "progress" })
+    .run();
+}
+
+/** The answers stored for quiz attempt `attemptId`, in question order. */
+export function readQuizAnswers(testDatabase: TestDb, attemptId: number) {
+  return testDatabase
+    .select({
+      questionId: schema.quizAnswers.questionId,
+      selectedOptionId: schema.quizAnswers.selectedOptionId,
+    })
+    .from(schema.quizAnswers)
+    .where(eq(schema.quizAnswers.attemptId, attemptId))
+    .orderBy(schema.quizAnswers.questionId)
+    .all();
 }
 
 /** Records that `userId` took `quizId` and picked `optionId` for `questionId`. */
