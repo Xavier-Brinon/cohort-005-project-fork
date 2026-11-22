@@ -68,8 +68,6 @@ and listed in `docs/custom-lint-rules.md`.
 - **Hoist a value that depends on nothing in the function body** out of it.
 - **State an invariant as `invariant(...)`**, where a comment would only
   describe it.
-- **A disable comment says why:**
-  `// oxlint-disable-next-line <rule> -- <reason>`.
 - **One exported symbol per line.**
 - **Export a symbol once a second file uses it.**
 - **A parameter every caller must pass has no default.**

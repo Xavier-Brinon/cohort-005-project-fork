@@ -155,7 +155,7 @@ importers:
         version: 1.91.0(oxlint-tsgolint@7.0.2005)
       oxlint-config:
         specifier: git+https://github.com/Xavier-Brinon/oxlint-config.git
-        version: https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33
+        version: https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/99c453abfe71809ff538f5f0a857d1aa5976af53
       oxlint-tsgolint:
         specifier: 7.0.2005
         version: 7.0.2005
@@ -6061,9 +6061,9 @@ packages:
       vite-plus:
         optional: true
 
-  oxlint-config@https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33:
-    resolution: {gitHosted: true, integrity: sha512-1JBIoBj8PlypmH4Th+X6WiK8xTkFmcVJnjyv/aif+z0T3zCWZJ3RlwJqUlnBM91CYKh15n0ioJQyYGqsf0/71w==, tarball: https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33}
-    version: 0.0.0
+  oxlint-config@https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/99c453abfe71809ff538f5f0a857d1aa5976af53:
+    resolution: {gitHosted: true, integrity: sha512-5eMMkQvjfILrOzjGAkWlq8teVWObQRxXHBXlFQxrezVp8P7VWRWGJvZlNeXaU5VXCimeZCx3Q32wIxLErMX0cg==, tarball: https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/99c453abfe71809ff538f5f0a857d1aa5976af53}
+    version: 0.1.0
 
   oxlint-tsgolint@7.0.2005:
     resolution: {integrity: sha512-6ccPGu4u4J9bwYPHXBFPee3RZrX3BboRdU7k14zRDDB1lvN3O7J/vPRFdaEfa1+CWx4xnQQOp4ctoaF66oO0uw==}
@@ -13332,7 +13332,7 @@ snapshots:
       '@oxfmt/binding-win32-ia32-msvc': 0.76.0
       '@oxfmt/binding-win32-x64-msvc': 0.76.0
 
-  oxlint-config@https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33: {}
+  oxlint-config@https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/99c453abfe71809ff538f5f0a857d1aa5976af53: {}
 
   oxlint-tsgolint@7.0.2005:
     optionalDependencies:
