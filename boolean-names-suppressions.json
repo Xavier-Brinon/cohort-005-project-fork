@@ -14,7 +14,7 @@
   "app/lib/ppp.ts": 1,
   "app/lib/utils.ts": 3,
   "app/routes/courses.$slug.$moduleId.tsx": 2,
-  "app/routes/courses.$slug.lessons.$lessonId.tsx": 19,
+  "app/routes/courses.$slug.lessons.$lessonId.tsx": 7,
   "app/routes/courses.$slug.purchase.tsx": 1,
   "app/routes/courses.$slug.tsx": 4,
   "app/routes/courses.tsx": 1,
