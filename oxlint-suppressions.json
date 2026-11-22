@@ -1,8 +1,5 @@
 {
   "app/components/comment-thread.tsx": {
-    "eslint-comments/require-description": {
-      "count": 1
-    },
     "max-lines-per-function": {
       "count": 4
     },
@@ -11,6 +8,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 6
     }
   },
   "app/components/dev-ui.tsx": {
@@ -19,6 +19,14 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 1
+    }
+  },
+  "app/components/lesson/curriculum-sidebar.tsx": {
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "app/components/monaco-markdown-editor.tsx": {
@@ -27,6 +35,29 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
+    }
+  },
+  "app/components/notification-bell.tsx": {
+    "ways-of-working/no-comments": {
+      "count": 14
+    }
+  },
+  "app/components/quiz-builder/answers-step.tsx": {
+    "ways-of-working/no-comments": {
+      "count": 2
+    }
+  },
+  "app/components/quiz-builder/review-step.tsx": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/components/quiz-builder/wizard-state.ts": {
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "app/components/sidebar.tsx": {
@@ -43,6 +74,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/components/ui/chart.tsx": {
@@ -50,6 +84,14 @@
       "count": 2
     },
     "react/no-danger": {
+      "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
+    }
+  },
+  "app/components/ui/tabs.tsx": {
+    "ways-of-working/no-comments": {
       "count": 1
     }
   },
@@ -65,11 +107,37 @@
     },
     "unicorn-js/name-replacements": {
       "count": 5
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
     }
   },
   "app/db/index.ts": {
     "unicorn-js/name-replacements": {
       "count": 3
+    },
+    "ways-of-working/no-comments": {
+      "count": 11
+    }
+  },
+  "app/db/schema.ts": {
+    "ways-of-working/no-comments": {
+      "count": 18
+    }
+  },
+  "app/lib/access.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 15
+    }
+  },
+  "app/lib/analytics.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 23
+    }
+  },
+  "app/lib/analytics.ts": {
+    "ways-of-working/no-comments": {
+      "count": 14
     }
   },
   "app/lib/bookmarks.server.test.ts": {
@@ -83,11 +151,22 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
     }
   },
   "app/lib/comment-markdown.server.ts": {
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 27
+    }
+  },
+  "app/lib/comment-markdown.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 9
     }
   },
   "app/lib/comments.server.test.ts": {
@@ -98,11 +177,22 @@
   "app/lib/comments.server.ts": {
     "max-params": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 28
+    }
+  },
+  "app/lib/country.server.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 5
     }
   },
   "app/lib/country.server.ts": {
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 6
     }
   },
   "app/lib/enrollments.server.test.ts": {
@@ -116,6 +206,24 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "app/lib/enrollments.ts": {
+    "ways-of-working/no-comments": {
+      "count": 1
+    }
+  },
+  "app/lib/mailer.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "app/lib/markdown.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "app/lib/notes.server.test.ts": {
@@ -129,11 +237,52 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 5
+    }
+  },
+  "app/lib/notification-feed.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 8
+    }
+  },
+  "app/lib/notifications.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 48
+    }
+  },
+  "app/lib/people.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "app/lib/ppp.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 13
     }
   },
   "app/lib/ppp.ts": {
     "max-params": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 14
+    }
+  },
+  "app/lib/redirects.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/lib/refund-rules.ts": {
+    "ways-of-working/no-comments": {
+      "count": 5
+    }
+  },
+  "app/lib/refunds.notifications.server.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 6
     }
   },
   "app/lib/refunds.server.test.ts": {
@@ -142,6 +291,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
     }
   },
   "app/lib/refunds.server.ts": {
@@ -153,6 +305,9 @@
     },
     "max-params": {
       "count": 6
+    },
+    "ways-of-working/no-comments": {
+      "count": 36
     }
   },
   "app/lib/seat-claims.server.test.ts": {
@@ -169,6 +324,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 3
+    },
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "app/lib/session.ts": {
@@ -182,11 +340,37 @@
     },
     "unicorn-js/name-replacements": {
       "count": 3
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
     }
   },
   "app/lib/validation.ts": {
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/example/index.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/example/lib/impl.ts": {
+    "ways-of-working/no-comments": {
+      "count": 1
+    }
+  },
+  "app/modules/instructor-analytics/analytics.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/instructor-analytics/index.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/modules/instructor-analytics/lib/instructor-analytics.server.ts": {
@@ -201,11 +385,112 @@
     },
     "unicorn-js/name-replacements": {
       "count": 11
+    },
+    "ways-of-working/no-comments": {
+      "count": 76
     }
   },
   "app/modules/instructor-analytics/tests/instructor-analytics.server.test.ts": {
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 1
+    }
+  },
+  "app/modules/lesson-page/index.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "app/modules/lesson-page/lesson-page.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/lesson-page/lib/lesson-action.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 8
+    }
+  },
+  "app/modules/lesson-page/lib/lesson-page.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 7
+    }
+  },
+  "app/modules/lesson-page/lib/queries.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 7
+    }
+  },
+  "app/modules/lesson-page/lib/quiz-scoring.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/lesson-page/lib/thread.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/lesson-page/tests/fixtures.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "app/modules/lesson-page/tests/lesson-action.intents.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "app/modules/lesson-page/tests/lesson-action.quiz.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/lesson-page/tests/lesson-page.content.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 5
+    }
+  },
+  "app/modules/lesson-page/tests/lesson-page.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 1
+    }
+  },
+  "app/modules/quiz-builder/index.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/quiz-builder/lib/access.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/quiz-builder/lib/queries.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 2
+    }
+  },
+  "app/modules/quiz-builder/lib/quiz-builder.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/quiz-builder/lib/save-quiz.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 2
+    }
+  },
+  "app/modules/quiz-builder/quiz-builder.server.ts": {
+    "ways-of-working/no-comments": {
+      "count": 3
+    }
+  },
+  "app/modules/quiz-builder/tests/quiz-builder.server.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/root.tsx": {
@@ -242,6 +527,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "app/routes/admin.refunds.tsx": {
@@ -250,6 +538,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/routes/admin.users.tsx": {
@@ -267,6 +558,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 5
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/routes/api.set-dev-country.ts": {
@@ -286,6 +580,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 7
     }
   },
   "app/routes/courses.$slug.lessons.$lessonId.tsx": {
@@ -297,6 +594,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 2
+    },
+    "ways-of-working/no-comments": {
+      "count": 13
     }
   },
   "app/routes/courses.$slug.purchase.tsx": {
@@ -314,11 +614,17 @@
     },
     "unicorn-js/name-replacements": {
       "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 10
     }
   },
   "app/routes/courses.$slug.refund.ts": {
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 4
     }
   },
   "app/routes/courses.$slug.tsx": {
@@ -339,6 +645,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 7
+    },
+    "ways-of-working/no-comments": {
+      "count": 10
     }
   },
   "app/routes/courses.$slug.welcome.tsx": {
@@ -370,6 +679,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 2
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
     }
   },
   "app/routes/dashboard.tsx": {
@@ -384,6 +696,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 2
+    },
+    "ways-of-working/no-comments": {
+      "count": 3
     }
   },
   "app/routes/home.tsx": {
@@ -412,6 +727,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 12
+    },
+    "ways-of-working/no-comments": {
+      "count": 13
     }
   },
   "app/routes/instructor.$courseId.lessons.$lessonId.tsx": {
@@ -426,6 +744,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 12
+    },
+    "ways-of-working/no-comments": {
+      "count": 8
     }
   },
   "app/routes/instructor.$courseId.modules.$moduleId.tsx": {
@@ -439,6 +760,9 @@
       "count": 1
     },
     "unicorn-js/name-replacements": {
+      "count": 4
+    },
+    "ways-of-working/no-comments": {
       "count": 4
     }
   },
@@ -454,6 +778,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 2
+    },
+    "ways-of-working/no-comments": {
+      "count": 9
     }
   },
   "app/routes/instructor.$courseId.tsx": {
@@ -471,6 +798,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 38
+    },
+    "ways-of-working/no-comments": {
+      "count": 20
     }
   },
   "app/routes/instructor.analytics.tsx": {
@@ -482,6 +812,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 37
     }
   },
   "app/routes/instructor.new.tsx": {
@@ -490,6 +823,9 @@
     },
     "max-params": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 7
     }
   },
   "app/routes/instructor.questions.tsx": {
@@ -498,6 +834,9 @@
     },
     "react/no-danger": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 10
     }
   },
   "app/routes/instructor.tsx": {
@@ -511,6 +850,9 @@
       "count": 1
     },
     "unicorn-js/name-replacements": {
+      "count": 1
+    },
+    "ways-of-working/no-comments": {
       "count": 1
     }
   },
@@ -536,11 +878,17 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/routes/saved.tsx": {
     "max-lines-per-function": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/routes/settings.tsx": {
@@ -549,11 +897,17 @@
     },
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "app/routes/signup.tsx": {
     "max-lines-per-function": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 2
     }
   },
   "app/routes/team.tsx": {
@@ -565,16 +919,30 @@
     },
     "unicorn-js/name-replacements": {
       "count": 2
+    },
+    "ways-of-working/no-comments": {
+      "count": 7
     }
   },
   "app/test/setup.ts": {
     "unicorn-js/name-replacements": {
+      "count": 4
+    },
+    "ways-of-working/no-comments": {
+      "count": 12
+    }
+  },
+  "react-router.config.ts": {
+    "ways-of-working/no-comments": {
       "count": 4
     }
   },
   "request-logger/agents.test.ts": {
     "max-lines": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 63
     }
   },
   "request-logger/agents.ts": {
@@ -592,11 +960,22 @@
     },
     "unicorn-js/name-replacements": {
       "count": 5
+    },
+    "ways-of-working/no-comments": {
+      "count": 159
+    }
+  },
+  "request-logger/config-wizard.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
     }
   },
   "request-logger/config.test.ts": {
     "unicorn-js/name-replacements": {
       "count": 1
+    },
+    "ways-of-working/no-comments": {
+      "count": 4
     }
   },
   "request-logger/config.ts": {
@@ -605,6 +984,14 @@
     },
     "unicorn-js/name-replacements": {
       "count": 2
+    },
+    "ways-of-working/no-comments": {
+      "count": 28
+    }
+  },
+  "request-logger/model-discovery.ts": {
+    "ways-of-working/no-comments": {
+      "count": 1
     }
   },
   "request-logger/proxy.test.ts": {
@@ -613,6 +1000,9 @@
     },
     "unicorn-js/name-replacements": {
       "count": 9
+    },
+    "ways-of-working/no-comments": {
+      "count": 18
     }
   },
   "request-logger/proxy.ts": {
@@ -630,11 +1020,17 @@
     },
     "unicorn-js/name-replacements": {
       "count": 12
+    },
+    "ways-of-working/no-comments": {
+      "count": 49
     }
   },
   "request-logger/render.test.ts": {
     "typescript/no-explicit-any": {
       "count": 3
+    },
+    "ways-of-working/no-comments": {
+      "count": 24
     }
   },
   "request-logger/render.ts": {
@@ -655,6 +1051,74 @@
     },
     "unicorn-js/name-replacements": {
       "count": 32
+    },
+    "ways-of-working/no-comments": {
+      "count": 55
+    }
+  },
+  "scripts/allow-builds.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 12
+    }
+  },
+  "scripts/check-boolean-names.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 5
+    }
+  },
+  "scripts/check-boolean-names.ts": {
+    "ways-of-working/no-comments": {
+      "count": 26
+    }
+  },
+  "scripts/check-client-bundle.ts": {
+    "ways-of-working/no-comments": {
+      "count": 10
+    }
+  },
+  "scripts/check-file-tokens.ts": {
+    "ways-of-working/no-comments": {
+      "count": 6
+    }
+  },
+  "scripts/check.ts": {
+    "ways-of-working/no-comments": {
+      "count": 13
+    }
+  },
+  "scripts/knock-workflows.ts": {
+    "ways-of-working/no-comments": {
+      "count": 16
+    }
+  },
+  "scripts/mutate-diff.ts": {
+    "ways-of-working/no-comments": {
+      "count": 15
+    }
+  },
+  "scripts/oxlint-plugins/drizzle.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 4
+    }
+  },
+  "scripts/oxlint-plugins/drizzle.ts": {
+    "ways-of-working/no-comments": {
+      "count": 11
+    }
+  },
+  "scripts/oxlint-plugins/sonarjs.test.ts": {
+    "ways-of-working/no-comments": {
+      "count": 2
+    }
+  },
+  "scripts/oxlint-plugins/sonarjs.ts": {
+    "ways-of-working/no-comments": {
+      "count": 8
+    }
+  },
+  "scripts/resolve-app-imports.ts": {
+    "ways-of-working/no-comments": {
+      "count": 5
     }
   },
   "scripts/seed.ts": {
@@ -672,6 +1136,19 @@
     },
     "unicorn-js/name-replacements": {
       "count": 16
+    },
+    "ways-of-working/no-comments": {
+      "count": 208
+    }
+  },
+  "stryker.conf.mjs": {
+    "ways-of-working/no-comments": {
+      "count": 41
+    }
+  },
+  "vitest.config.ts": {
+    "ways-of-working/no-comments": {
+      "count": 5
     }
   }
 }

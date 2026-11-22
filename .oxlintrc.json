@@ -4,13 +4,12 @@
 // each rule to the ESLint rule it replaced.
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // No comments in code (ways-of-working/no-comments): the shared config
+  // loads the rule's plugin and sets it to error.
+  "extends": ["./node_modules/oxlint-config/oxlintrc.json"],
   "categories": { "correctness": "off" },
   "plugins": ["eslint", "typescript", "react", "import", "jsx-a11y", "vitest"],
   "jsPlugins": [
-    {
-      "name": "eslint-comments",
-      "specifier": "@eslint-community/eslint-plugin-eslint-comments"
-    },
     {
       "name": "simple-import-sort",
       "specifier": "eslint-plugin-simple-import-sort"
@@ -129,12 +128,6 @@
 
     // Parameterise every query: sql.raw() only takes a fixed string.
     "drizzle/no-dynamic-sql-raw": "error",
-
-    // A disable comment says why.
-    "eslint-comments/require-description": [
-      "error",
-      { "ignore": ["eslint-enable"] }
-    ],
 
     // Every item in a list gets a stable key.
     "react/jsx-key": "error",

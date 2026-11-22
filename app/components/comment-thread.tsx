@@ -73,8 +73,7 @@ function CommentForm({
       if (intent === "create-comment") setBody("");
       onDone?.();
     }
-    // onDone is recreated each render by callers; depending on it would loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react/exhaustive-deps -- onDone is recreated each render by callers; depending on it would loop.
   }, [fetcher.state, fetcher.data, intent]);
 
   const tooLong = body.length > MAX_COMMENT_LENGTH;

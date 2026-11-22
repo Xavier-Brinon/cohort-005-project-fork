@@ -90,9 +90,6 @@ importers:
       '@clack/prompts':
         specifier: ^1.7.0
         version: 1.7.0
-      '@eslint-community/eslint-plugin-eslint-comments':
-        specifier: ^4.8.1
-        version: 4.8.1(eslint@10.15.0(jiti@2.7.0)(supports-color@8.1.1))
       '@knocklabs/agent-toolkit':
         specifier: ^0.5.8
         version: 0.5.8(@mastra/core@0.10.15(openapi-types@12.1.3)(react@19.2.8)(supports-color@8.1.1)(valibot@1.4.2(typescript@5.9.3))(zod@3.25.76))(@opentelemetry/core@2.12.1(@opentelemetry/api@1.9.1))(@opentelemetry/exporter-trace-otlp-http@0.201.1(@opentelemetry/api@1.9.1))(ai@4.3.19(react@19.2.8)(zod@3.25.76))(openai@4.104.0(zod@3.25.76))(supports-color@8.1.1)
@@ -156,6 +153,9 @@ importers:
       oxlint:
         specifier: 1.91.0
         version: 1.91.0(oxlint-tsgolint@7.0.2005)
+      oxlint-config:
+        specifier: git+https://github.com/Xavier-Brinon/oxlint-config.git
+        version: https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33
       oxlint-tsgolint:
         specifier: 7.0.2005
         version: 7.0.2005
@@ -1077,12 +1077,6 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
-
-  '@eslint-community/eslint-plugin-eslint-comments@4.8.1':
-    resolution: {integrity: sha512-vafrdi15JHBFh1qWOAucyJwlEEuhdoMof28jOdKdgnwZ7bXwd6v4wzHYSmAVLwnx0yc7bqAtfJ0EZQV1WAzV/Q==}
-    engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
-    peerDependencies:
-      eslint: ^6.0.0 || ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0
 
   '@eslint-community/eslint-utils@4.10.1':
     resolution: {integrity: sha512-cuadcxVFE8sDK6iWJbs8Sn0av2Nrh2QSGQhVlBW9AaAHqHwjWsZHT8LJ4hFGPh7ASBV2deFdM7H/DPjulmh8rg==}
@@ -6067,6 +6061,10 @@ packages:
       vite-plus:
         optional: true
 
+  oxlint-config@https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33:
+    resolution: {gitHosted: true, integrity: sha512-1JBIoBj8PlypmH4Th+X6WiK8xTkFmcVJnjyv/aif+z0T3zCWZJ3RlwJqUlnBM91CYKh15n0ioJQyYGqsf0/71w==, tarball: https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33}
+    version: 0.0.0
+
   oxlint-tsgolint@7.0.2005:
     resolution: {integrity: sha512-6ccPGu4u4J9bwYPHXBFPee3RZrX3BboRdU7k14zRDDB1lvN3O7J/vPRFdaEfa1+CWx4xnQQOp4ctoaF66oO0uw==}
     hasBin: true
@@ -8173,12 +8171,6 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
-
-  '@eslint-community/eslint-plugin-eslint-comments@4.8.1(eslint@10.15.0(jiti@2.7.0)(supports-color@8.1.1))':
-    dependencies:
-      escape-string-regexp: 4.0.0
-      eslint: 10.15.0(jiti@2.7.0)(supports-color@8.1.1)
-      ignore: 7.0.14
 
   '@eslint-community/eslint-utils@4.10.1(eslint@10.15.0(jiti@2.7.0)(supports-color@8.1.1))':
     dependencies:
@@ -13339,6 +13331,8 @@ snapshots:
       '@oxfmt/binding-win32-arm64-msvc': 0.76.0
       '@oxfmt/binding-win32-ia32-msvc': 0.76.0
       '@oxfmt/binding-win32-x64-msvc': 0.76.0
+
+  oxlint-config@https://codeload.github.com/Xavier-Brinon/oxlint-config/tar.gz/36525c6919c3efad978ea44874e8ca3fc580fb33: {}
 
   oxlint-tsgolint@7.0.2005:
     optionalDependencies:
