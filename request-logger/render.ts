@@ -16,7 +16,8 @@
  */
 
 import zlib from "node:zlib";
-import type { RendererId } from "./agents.ts";
+
+import type { RendererId } from "./agents";
 
 interface RenderInput {
   /** Human label for the capture, e.g. "Claude Code" or "Pi (ChatGPT)". */

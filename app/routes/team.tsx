@@ -1,30 +1,32 @@
+import { and, eq } from "drizzle-orm";
+import { AlertTriangle, BookOpen, Check, Copy, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useFetcher } from "react-router";
-import { toast } from "sonner";
-import type { Route } from "./+types/team";
-import { getCurrentUserId } from "~/lib/session";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Textarea } from "~/components/ui/textarea";
-import { Users, BookOpen, Copy, Check, AlertTriangle } from "lucide-react";
 import { data, isRouteErrorResponse } from "react-router";
+import { toast } from "sonner";
+
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { Textarea } from "~/components/ui/textarea";
 import { db } from "~/db";
 import {
-  teams,
-  teamMembers,
   coupons,
   courses,
-  users,
-  TeamMemberRole,
   RefundStatus,
+  TeamMemberRole,
+  teamMembers,
+  teams,
+  users,
 } from "~/db/schema";
-import { eq, and } from "drizzle-orm";
 import {
   getSeatAvailability,
   listTeamLicences,
   type SeatAvailability,
 } from "~/lib/refunds.server";
+import { getCurrentUserId } from "~/lib/session";
 import { formatPrice } from "~/lib/utils";
+
+import type { Route } from "./+types/team";
 
 function getTeamForAdmin(userId: number) {
   const membership = db

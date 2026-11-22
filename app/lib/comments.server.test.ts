@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { createTestDb, seedBaseData } from "~/test/setup";
+
 import * as schema from "~/db/schema";
+import { createTestDb, seedBaseData } from "~/test/setup";
+
 import {
   createLessonComment,
   deleteLessonComment,
@@ -8,13 +10,13 @@ import {
 } from "./comments.server";
 import { deliver, fakeNotifier } from "./notifications.server";
 
-let db: ReturnType<typeof createTestDb>;
+let database: ReturnType<typeof createTestDb>;
 let base: ReturnType<typeof seedBaseData>;
 let moduleId: number;
 let lessonId: number;
 
 function addLesson(title: string): number {
-  return db
+  return database
     .insert(schema.lessons)
     .values({ moduleId, title, position: 1 })
     .returning()
@@ -22,9 +24,9 @@ function addLesson(title: string): number {
 }
 
 beforeEach(() => {
-  db = createTestDb();
-  base = seedBaseData(db);
-  moduleId = db
+  database = createTestDb();
+  base = seedBaseData(database);
+  moduleId = database
     .insert(schema.modules)
     .values({ courseId: base.course.id, title: "Basics", position: 1 })
     .returning()
@@ -35,7 +37,7 @@ beforeEach(() => {
 describe("createLessonComment", () => {
   it("posts a Lesson Question with the body trimmed", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
@@ -50,13 +52,13 @@ describe("createLessonComment", () => {
 
   it("refuses a body that is only whitespace", () => {
     expect(() =>
-      createLessonComment(db, base.user.id, lessonId, null, "   \n ")
+      createLessonComment(database, base.user.id, lessonId, null, "   \n ")
     ).toThrow("Comment cannot be empty");
   });
 
   it("accepts a body of exactly 5000 characters", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
@@ -67,26 +69,32 @@ describe("createLessonComment", () => {
 
   it("refuses a body longer than 5000 characters once trimmed", () => {
     expect(() =>
-      createLessonComment(db, base.user.id, lessonId, null, "a".repeat(5001))
+      createLessonComment(
+        database,
+        base.user.id,
+        lessonId,
+        null,
+        "a".repeat(5001)
+      )
     ).toThrow("Comment must be 5000 characters or fewer");
   });
 
   it("refuses a Lesson Comment on a lesson that does not exist", () => {
     expect(() =>
-      createLessonComment(db, base.user.id, lessonId + 999, null, "Hello")
+      createLessonComment(database, base.user.id, lessonId + 999, null, "Hello")
     ).toThrow("Lesson not found");
   });
 
   it("posts a Lesson Reply under a Lesson Question on the same lesson", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const reply = createLessonComment(
-      db,
+      database,
       base.instructor.id,
       lessonId,
       question.id,
@@ -98,14 +106,14 @@ describe("createLessonComment", () => {
 
   it("refuses a Lesson Reply whose parent does not exist", () => {
     expect(() =>
-      createLessonComment(db, base.user.id, lessonId, 999, "Hello")
+      createLessonComment(database, base.user.id, lessonId, 999, "Hello")
     ).toThrow("Parent comment not found");
   });
 
   it("refuses a Lesson Reply whose parent is on a different lesson", () => {
     const otherLessonId = addLesson("Lesson 2");
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       otherLessonId,
       null,
@@ -113,7 +121,7 @@ describe("createLessonComment", () => {
     );
     expect(() =>
       createLessonComment(
-        db,
+        database,
         base.instructor.id,
         lessonId,
         question.id,
@@ -124,21 +132,21 @@ describe("createLessonComment", () => {
 
   it("refuses a Lesson Reply to a Lesson Reply", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const reply = createLessonComment(
-      db,
+      database,
       base.instructor.id,
       lessonId,
       question.id,
       "Because."
     );
     expect(() =>
-      createLessonComment(db, base.user.id, lessonId, reply.id, "Thanks!")
+      createLessonComment(database, base.user.id, lessonId, reply.id, "Thanks!")
     ).toThrow("Replies can only be one level deep");
   });
 });
@@ -149,14 +157,14 @@ describe("deleteLessonComment", () => {
 
   it("lets the author soft-delete their Lesson Comment", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const deleted = deleteLessonComment(
-      db,
+      database,
       question.id,
       base.user.id,
       false,
@@ -168,14 +176,14 @@ describe("deleteLessonComment", () => {
 
   it("lets staff delete someone else's Lesson Comment", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const deleted = deleteLessonComment(
-      db,
+      database,
       question.id,
       base.instructor.id,
       true,
@@ -186,34 +194,34 @@ describe("deleteLessonComment", () => {
 
   it("refuses anyone else who is not staff", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     expect(() =>
-      deleteLessonComment(db, question.id, base.instructor.id, false, NOW)
+      deleteLessonComment(database, question.id, base.instructor.id, false, NOW)
     ).toThrow("You can only delete your own comments");
   });
 
   it("refuses a Lesson Comment that does not exist", () => {
-    expect(() => deleteLessonComment(db, 999, base.user.id, true, NOW)).toThrow(
-      "Comment not found"
-    );
+    expect(() =>
+      deleteLessonComment(database, 999, base.user.id, true, NOW)
+    ).toThrow("Comment not found");
   });
 
   it("does nothing when the Lesson Comment is already deleted", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
-    deleteLessonComment(db, question.id, base.user.id, false, NOW);
+    deleteLessonComment(database, question.id, base.user.id, false, NOW);
     const again = deleteLessonComment(
-      db,
+      database,
       question.id,
       base.user.id,
       false,
@@ -228,14 +236,14 @@ describe("editLessonComment", () => {
 
   it("lets the author change the body, trimmed, and marks it edited", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const edited = editLessonComment(
-      db,
+      database,
       question.id,
       base.user.id,
       "  Why not?  ",
@@ -247,53 +255,59 @@ describe("editLessonComment", () => {
 
   it("applies the same body rules as posting", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     expect(() =>
-      editLessonComment(db, question.id, base.user.id, "  ", NOW)
+      editLessonComment(database, question.id, base.user.id, "  ", NOW)
     ).toThrow("Comment cannot be empty");
   });
 
   it("refuses anyone but the author, staff included", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     expect(() =>
-      editLessonComment(db, question.id, base.instructor.id, "Changed", NOW)
+      editLessonComment(
+        database,
+        question.id,
+        base.instructor.id,
+        "Changed",
+        NOW
+      )
     ).toThrow("You can only edit your own comments");
   });
 
   it("refuses a deleted Lesson Comment", () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
-    deleteLessonComment(db, question.id, base.user.id, false, NOW);
+    deleteLessonComment(database, question.id, base.user.id, false, NOW);
     expect(() =>
-      editLessonComment(db, question.id, base.user.id, "Changed", NOW)
+      editLessonComment(database, question.id, base.user.id, "Changed", NOW)
     ).toThrow("Comment has been deleted");
   });
 
   it("refuses a Lesson Comment that does not exist", () => {
     expect(() =>
-      editLessonComment(db, 999, base.user.id, "Changed", NOW)
+      editLessonComment(database, 999, base.user.id, "Changed", NOW)
     ).toThrow("Comment not found");
   });
 });
 
 function addPlatformAdmin() {
-  return db
+  return database
     .insert(schema.users)
     .values({
       name: "Pat Admin",
@@ -310,7 +324,7 @@ describe("lesson-question-posted Notifications", () => {
   it("notifies nobody when the Instructor posts on their own lesson", async () => {
     const notifier = fakeNotifier();
     await deliver(
-      createLessonComment(db, base.instructor.id, lessonId, null, "Note"),
+      createLessonComment(database, base.instructor.id, lessonId, null, "Note"),
       notifier
     );
     expect(notifier.sent).toEqual([]);
@@ -320,7 +334,7 @@ describe("lesson-question-posted Notifications", () => {
     const admin = addPlatformAdmin();
     const notifier = fakeNotifier();
     await deliver(
-      createLessonComment(db, admin.id, lessonId, null, "Heads up"),
+      createLessonComment(database, admin.id, lessonId, null, "Heads up"),
       notifier
     );
     expect(notifier.sent).toEqual([]);
@@ -329,7 +343,7 @@ describe("lesson-question-posted Notifications", () => {
   it("notifies the course's Instructor when a Student posts a Lesson Question", async () => {
     const notifier = fakeNotifier();
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
@@ -356,7 +370,7 @@ describe("lesson-question-posted Notifications", () => {
 
   it("creates no Notification when a Lesson Question is edited or deleted", async () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
@@ -365,11 +379,11 @@ describe("lesson-question-posted Notifications", () => {
 
     const notifier = fakeNotifier();
     await deliver(
-      editLessonComment(db, question.id, base.user.id, "Why not?", NOW),
+      editLessonComment(database, question.id, base.user.id, "Why not?", NOW),
       notifier
     );
     await deliver(
-      deleteLessonComment(db, question.id, base.user.id, false, NOW),
+      deleteLessonComment(database, question.id, base.user.id, false, NOW),
       notifier
     );
 
@@ -381,7 +395,7 @@ describe("marking a lesson-question-posted Notification read", () => {
   const NOW = new Date("2026-10-06T12:00:00.000Z");
 
   function postQuestion() {
-    return createLessonComment(db, base.user.id, lessonId, null, "Why?");
+    return createLessonComment(database, base.user.id, lessonId, null, "Why?");
   }
 
   it("marks it read when the course's Instructor answers the Lesson Question", async () => {
@@ -389,7 +403,7 @@ describe("marking a lesson-question-posted Notification read", () => {
     const notifier = fakeNotifier();
     await deliver(
       createLessonComment(
-        db,
+        database,
         base.instructor.id,
         lessonId,
         question.id,
@@ -407,7 +421,13 @@ describe("marking a lesson-question-posted Notification read", () => {
     const admin = addPlatformAdmin();
     const notifier = fakeNotifier();
     await deliver(
-      createLessonComment(db, admin.id, lessonId, question.id, "Because."),
+      createLessonComment(
+        database,
+        admin.id,
+        lessonId,
+        question.id,
+        "Because."
+      ),
       notifier
     );
     expect(notifier.marked).toEqual([
@@ -419,7 +439,7 @@ describe("marking a lesson-question-posted Notification read", () => {
     const question = postQuestion();
     const notifier = fakeNotifier();
     await deliver(
-      deleteLessonComment(db, question.id, base.user.id, false, NOW),
+      deleteLessonComment(database, question.id, base.user.id, false, NOW),
       notifier
     );
     expect(notifier.marked).toEqual([
@@ -431,7 +451,13 @@ describe("marking a lesson-question-posted Notification read", () => {
     const question = postQuestion();
     const notifier = fakeNotifier();
     await deliver(
-      createLessonComment(db, base.user.id, lessonId, question.id, "Anyone?"),
+      createLessonComment(
+        database,
+        base.user.id,
+        lessonId,
+        question.id,
+        "Anyone?"
+      ),
       notifier
     );
     expect(notifier.marked).toEqual([]);
@@ -439,11 +465,11 @@ describe("marking a lesson-question-posted Notification read", () => {
 
   it("marks nothing when the Instructor answers a Lesson Question already deleted", async () => {
     const question = postQuestion();
-    deleteLessonComment(db, question.id, base.user.id, false, NOW);
+    deleteLessonComment(database, question.id, base.user.id, false, NOW);
     const notifier = fakeNotifier();
     await deliver(
       createLessonComment(
-        db,
+        database,
         base.instructor.id,
         lessonId,
         question.id,
@@ -457,7 +483,7 @@ describe("marking a lesson-question-posted Notification read", () => {
   it("marks nothing when the answering Lesson Reply is deleted", async () => {
     const question = postQuestion();
     const answer = createLessonComment(
-      db,
+      database,
       base.instructor.id,
       lessonId,
       question.id,
@@ -465,7 +491,7 @@ describe("marking a lesson-question-posted Notification read", () => {
     );
     const notifier = fakeNotifier();
     await deliver(
-      deleteLessonComment(db, answer.id, base.instructor.id, true, NOW),
+      deleteLessonComment(database, answer.id, base.instructor.id, true, NOW),
       notifier
     );
     expect(notifier.marked).toEqual([]);
@@ -476,14 +502,14 @@ describe("marking a lesson-question-posted Notification read", () => {
 describe("lesson-reply-posted Notifications", () => {
   it("notifies nobody when the author replies in their own thread", async () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const reply = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       question.id,
@@ -498,14 +524,14 @@ describe("lesson-reply-posted Notifications", () => {
 
   it("notifies the Lesson Question's author when the Instructor replies", async () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const reply = createLessonComment(
-      db,
+      database,
       base.instructor.id,
       lessonId,
       question.id,
@@ -531,7 +557,7 @@ describe("lesson-reply-posted Notifications", () => {
   });
 
   it("notifies the author when another Student replies, with the reply cut to an excerpt", async () => {
-    const other = db
+    const other = database
       .insert(schema.users)
       .values({
         name: "Priya Student",
@@ -541,14 +567,14 @@ describe("lesson-reply-posted Notifications", () => {
       .returning()
       .get();
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const reply = createLessonComment(
-      db,
+      database,
       other.id,
       lessonId,
       question.id,
@@ -570,21 +596,21 @@ describe("lesson-reply-posted Notifications", () => {
 
   it("notifies nobody about a Lesson Reply under a deleted Lesson Question", async () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     deleteLessonComment(
-      db,
+      database,
       question.id,
       base.user.id,
       false,
       new Date("2026-10-06T12:00:00.000Z")
     );
     const reply = createLessonComment(
-      db,
+      database,
       base.instructor.id,
       lessonId,
       question.id,
@@ -599,14 +625,14 @@ describe("lesson-reply-posted Notifications", () => {
 
   it("creates no Notification when a Lesson Reply is edited or deleted", async () => {
     const question = createLessonComment(
-      db,
+      database,
       base.user.id,
       lessonId,
       null,
       "Why?"
     );
     const reply = createLessonComment(
-      db,
+      database,
       base.instructor.id,
       lessonId,
       question.id,
@@ -616,7 +642,7 @@ describe("lesson-reply-posted Notifications", () => {
     const notifier = fakeNotifier();
     await deliver(
       editLessonComment(
-        db,
+        database,
         reply.id,
         base.instructor.id,
         "Because, as the docs say.",
@@ -626,7 +652,7 @@ describe("lesson-reply-posted Notifications", () => {
     );
     await deliver(
       deleteLessonComment(
-        db,
+        database,
         reply.id,
         base.instructor.id,
         true,

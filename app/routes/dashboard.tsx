@@ -1,24 +1,4 @@
-import { Link } from "react-router";
-import type { Route } from "./+types/dashboard";
-import { db } from "~/db";
-import {
-  enrollments,
-  courses,
-  modules,
-  lessons,
-  lessonProgress,
-  LessonProgressStatus,
-} from "~/db/schema";
-import { eq, and, or, sql } from "drizzle-orm";
-import { getCurrentUserId } from "~/lib/session";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Skeleton } from "~/components/ui/skeleton";
+import { and, eq, or, sql } from "drizzle-orm";
 import {
   AlertTriangle,
   BookOpen,
@@ -26,8 +6,30 @@ import {
   GraduationCap,
   PlayCircle,
 } from "lucide-react";
-import { CourseImage } from "~/components/course-image";
+import { Link } from "react-router";
 import { data, isRouteErrorResponse } from "react-router";
+
+import { CourseImage } from "~/components/course-image";
+import { Button } from "~/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "~/components/ui/card";
+import { Skeleton } from "~/components/ui/skeleton";
+import { db } from "~/db";
+import {
+  courses,
+  enrollments,
+  lessonProgress,
+  LessonProgressStatus,
+  lessons,
+  modules,
+} from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+
+import type { Route } from "./+types/dashboard";
 
 function getUserEnrolledCourses(userId: number) {
   return db

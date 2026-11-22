@@ -1,3 +1,5 @@
+// Migrated from .prettierrc and .prettierignore with `oxfmt --migrate=prettier`.
+// oxfmt also reads .gitignore.
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "useTabs": false,
@@ -8,5 +10,24 @@
   "semi": true,
   "arrowParens": "always",
   "sortPackageJson": false,
-  "ignorePatterns": [".agents/**", "drizzle/**", "aube-lock.yaml"]
+  "ignorePatterns": [
+    // Generated: migrations and their snapshots are written by drizzle-kit.
+    "drizzle/",
+
+    // Vendored agent skills and harness config, owned upstream.
+    ".agents/",
+    ".claude/",
+    ".sandcastle/",
+    ".grill/",
+    "_internal/",
+
+    // Lockfiles.
+    "package-lock.json",
+    "aube-lock.yaml",
+    "skills-lock.json",
+
+    // Baselines written by the lint tools.
+    "oxlint-suppressions.json",
+    ".dependency-cruiser-known-violations.json"
+  ]
 }

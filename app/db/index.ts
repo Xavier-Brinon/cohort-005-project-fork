@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/better-sqlite3";
+
 import * as schema from "./schema";
 
 // The database a domain module takes first, so tests can hand in an
@@ -49,17 +50,20 @@ function openDatabase(filename: string) {
 
 let instance: ReturnType<typeof drizzle<typeof schema>> | undefined;
 
-function getDb() {
+function getDatabase() {
   if (!instance) {
     instance = drizzle(getSqlite(), { schema });
   }
   return instance;
 }
 
-export const db = /* @__PURE__ */ new Proxy({} as ReturnType<typeof getDb>, {
-  get(_target, prop) {
-    const target = getDb();
-    const value = Reflect.get(target, prop);
-    return typeof value === "function" ? value.bind(target) : value;
-  },
-});
+export const db = /* @__PURE__ */ new Proxy(
+  {} as ReturnType<typeof getDatabase>,
+  {
+    get(_target, prop) {
+      const target = getDatabase();
+      const value = Reflect.get(target, prop);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  }
+);

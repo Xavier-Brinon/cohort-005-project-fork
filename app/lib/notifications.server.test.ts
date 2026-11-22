@@ -2,12 +2,13 @@ import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import {
   deliver,
   fakeNotifier,
-  outboxNotifier,
   type Notifier,
   type NotifyIntent,
+  outboxNotifier,
 } from "./notifications.server";
 
 const opened: NotifyIntent = {

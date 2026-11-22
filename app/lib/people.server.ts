@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+
 import type { Queryable } from "~/db";
 import { users } from "~/db/schema";
 import type { Person } from "~/lib/notifications.server";
@@ -7,8 +8,8 @@ import type { Person } from "~/lib/notifications.server";
 // Looking a person up by id for a domain write, and naming them in a
 // Notification.
 
-export function findPerson(db: Queryable, userId: number) {
-  return db
+export function findPerson(database: Queryable, userId: number) {
+  return database
     .select({
       id: users.id,
       name: users.name,

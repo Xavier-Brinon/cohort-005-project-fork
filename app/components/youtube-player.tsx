@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -7,7 +7,7 @@ declare global {
   }
 }
 
-type YouTubePlayerProps = {
+interface YouTubePlayerProps {
   videoUrl: string;
   lessonId: number;
   title: string;
@@ -17,7 +17,7 @@ type YouTubePlayerProps = {
   trackingEnabled: boolean;
   autoplay?: boolean;
   onToggleAutoplay?: () => void;
-};
+}
 
 function extractVideoId(url: string): string | null {
   if (url.includes("youtube.com/embed/")) {

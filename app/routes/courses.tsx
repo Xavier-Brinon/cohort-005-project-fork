@@ -1,41 +1,43 @@
+import { and, eq, inArray, like, or, sql } from "drizzle-orm";
+import { AlertTriangle, BookOpen, Search } from "lucide-react";
 import {
   Form,
-  Link,
-  useSearchParams,
-  useNavigation,
   isRouteErrorResponse,
+  Link,
+  useNavigation,
+  useSearchParams,
 } from "react-router";
-import type { Route } from "./+types/courses";
-import { db } from "~/db";
-import {
-  courses as coursesTable,
-  categories as categoriesTable,
-  users,
-  modules,
-  lessons,
-  enrollments as enrollmentsTable,
-  lessonProgress,
-  courseRatings,
-  CourseStatus,
-  LessonProgressStatus,
-} from "~/db/schema";
-import { eq, like, and, or, sql, inArray } from "drizzle-orm";
+
+import { CourseImage } from "~/components/course-image";
+import { StarRating } from "~/components/star-rating";
+import { Button } from "~/components/ui/button";
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
 } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
 import { Skeleton } from "~/components/ui/skeleton";
-import { AlertTriangle, BookOpen, Search } from "lucide-react";
-import { CourseImage } from "~/components/course-image";
 import { UserAvatar } from "~/components/user-avatar";
-import { getCurrentUserId } from "~/lib/session";
-import { formatPrice } from "~/lib/utils";
+import { db } from "~/db";
+import {
+  categories as categoriesTable,
+  courseRatings,
+  courses as coursesTable,
+  CourseStatus,
+  enrollments as enrollmentsTable,
+  lessonProgress,
+  LessonProgressStatus,
+  lessons,
+  modules,
+  users,
+} from "~/db/schema";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice } from "~/lib/ppp";
-import { StarRating } from "~/components/star-rating";
+import { getCurrentUserId } from "~/lib/session";
+import { formatPrice } from "~/lib/utils";
+
+import type { Route } from "./+types/courses";
 
 function buildCourseQuery(
   search: string | null,
@@ -52,9 +54,12 @@ function buildCourseQuery(
   }
 
   if (search) {
-    const term = `%${search}%`;
+    const pattern = `%${search}%`;
     conditions.push(
-      or(like(coursesTable.title, term), like(coursesTable.description, term))!
+      or(
+        like(coursesTable.title, pattern),
+        like(coursesTable.description, pattern)
+      )
     );
   }
 
@@ -240,10 +245,10 @@ function getCompletedLessonCount(userId: number, courseId: number) {
   return result?.count ?? 0;
 }
 
-type CourseRatingSummary = {
+interface CourseRatingSummary {
   average: number | null;
   count: number;
-};
+}
 
 const EMPTY_SUMMARY: CourseRatingSummary = { average: null, count: 0 };
 

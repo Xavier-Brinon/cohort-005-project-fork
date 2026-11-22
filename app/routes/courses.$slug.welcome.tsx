@@ -1,20 +1,22 @@
+import { and, eq, or } from "drizzle-orm";
+import { MessageCircle, PartyPopper, PlayCircle } from "lucide-react";
 import { Link, redirect } from "react-router";
-import type { Route } from "./+types/courses.$slug.welcome";
-import { db } from "~/db";
-import {
-  courses,
-  categories,
-  users,
-  modules,
-  lessons,
-  enrollments,
-} from "~/db/schema";
-import { eq, and, or } from "drizzle-orm";
-import { getCurrentUserId } from "~/lib/session";
+import { data } from "react-router";
+
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { PartyPopper, MessageCircle, PlayCircle } from "lucide-react";
-import { data } from "react-router";
+import { db } from "~/db";
+import {
+  categories,
+  courses,
+  enrollments,
+  lessons,
+  modules,
+  users,
+} from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
+
+import type { Route } from "./+types/courses.$slug.welcome";
 
 function getCourseBySlug(slug: string) {
   return db.select().from(courses).where(eq(courses.slug, slug)).get();

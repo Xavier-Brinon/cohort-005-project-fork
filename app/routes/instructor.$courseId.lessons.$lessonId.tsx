@@ -1,23 +1,4 @@
-import { useState, useEffect } from "react";
-import { Link, useFetcher, useBlocker } from "react-router";
-import { toast } from "sonner";
-import type { Route } from "./+types/instructor.$courseId.lessons.$lessonId";
-import { getCurrentUserId } from "~/lib/session";
-import {
-  UserRole,
-  users,
-  courses,
-  modules,
-  lessons,
-  quizzes,
-} from "~/db/schema";
-import { db } from "~/db";
 import { eq } from "drizzle-orm";
-import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { Button } from "~/components/ui/button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import { MonacoMarkdownEditor } from "~/components/monaco-markdown-editor";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -26,9 +7,30 @@ import {
   Github,
   Save,
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Link, useBlocker, useFetcher } from "react-router";
 import { data, isRouteErrorResponse } from "react-router";
+import { toast } from "sonner";
 import { z } from "zod";
+
+import { MonacoMarkdownEditor } from "~/components/monaco-markdown-editor";
+import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { db } from "~/db";
+import {
+  courses,
+  lessons,
+  modules,
+  quizzes,
+  UserRole,
+  users,
+} from "~/db/schema";
+import { getCurrentUserId } from "~/lib/session";
 import { parseFormData, parseParams } from "~/lib/validation";
+
+import type { Route } from "./+types/instructor.$courseId.lessons.$lessonId";
 
 const instructorLessonParamsSchema = z.object({
   courseId: z.coerce.number().int(),

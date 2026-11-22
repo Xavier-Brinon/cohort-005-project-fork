@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+
+import type { Db } from "~/db";
 import {
   comments,
   courses,
@@ -7,15 +9,15 @@ import {
   UserRole,
   type users,
 } from "~/db/schema";
-import type { Db } from "~/db";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "~/lib/comments";
 import {
-  excerpt,
   type Deliverable,
+  excerpt,
   type MarkReadIntent,
   type NotifyIntent,
 } from "~/lib/notifications.server";
 import { findPerson, toPerson } from "~/lib/people.server";
+import { type Markdown, markdown } from "~/lib/text";
 
 type LessonComment = typeof comments.$inferSelect;
 type User = typeof users.$inferSelect;
@@ -28,13 +30,17 @@ type User = typeof users.$inferSelect;
 // Every function takes the database first, so tests can hand in an in-memory
 // one. Rule breaks throw an Error whose message is shown to the person as-is.
 
-export function findLessonComment(db: Db, commentId: number) {
-  return db.select().from(comments).where(eq(comments.id, commentId)).get();
+export function findLessonComment(database: Db, commentId: number) {
+  return database
+    .select()
+    .from(comments)
+    .where(eq(comments.id, commentId))
+    .get();
 }
 
 // The body is stored trimmed and must be 1–5000 characters once trimmed.
-function validBody(body: string): string {
-  const trimmed = body.trim();
+function validBody(body: string): Markdown {
+  const trimmed = markdown(body.trim());
   if (trimmed.length < MIN_COMMENT_LENGTH) {
     throw new Error("Comment cannot be empty");
   }
@@ -47,7 +53,7 @@ function validBody(body: string): string {
 }
 
 export function createLessonComment(
-  db: Db,
+  database: Db,
   authorId: number,
   lessonId: number,
   parentId: number | null,
@@ -55,14 +61,14 @@ export function createLessonComment(
 ) {
   const trimmed = validBody(body);
 
-  const lessonCourse = findLessonCourse(db, lessonId);
+  const lessonCourse = findLessonCourse(database, lessonId);
   if (!lessonCourse) {
     throw new Error("Lesson not found");
   }
 
   let parent: LessonComment | undefined;
   if (parentId !== null) {
-    parent = findLessonComment(db, parentId);
+    parent = findLessonComment(database, parentId);
     if (!parent) {
       throw new Error("Parent comment not found");
     }
@@ -74,7 +80,7 @@ export function createLessonComment(
     }
   }
 
-  const comment = db
+  const comment = database
     .insert(comments)
     .values({ userId: authorId, lessonId, parentId, body: trimmed })
     .returning()
@@ -84,12 +90,12 @@ export function createLessonComment(
   // Lesson Question's Notification was already marked read when it was
   // deleted, so answering it afterwards marks nothing.
   const notify: NotifyIntent[] = parent
-    ? lessonReplyPosted(db, comment, parent, lessonCourse)
-    : lessonQuestionPosted(db, comment, lessonCourse);
+    ? lessonReplyPosted(database, comment, parent, lessonCourse)
+    : lessonQuestionPosted(database, comment, lessonCourse);
   const markRead: MarkReadIntent[] =
     parent &&
     parent.deletedAt === null &&
-    isAnswerer(findPerson(db, authorId), lessonCourse)
+    isAnswerer(findPerson(database, authorId), lessonCourse)
       ? [{ type: "lesson-question-posted", subjectId: parent.id }]
       : [];
 
@@ -99,8 +105,8 @@ export function createLessonComment(
 type LessonCourse = NonNullable<ReturnType<typeof findLessonCourse>>;
 
 // A lesson with the course it belongs to.
-function findLessonCourse(db: Db, lessonId: number) {
-  return db
+function findLessonCourse(database: Db, lessonId: number) {
+  return database
     .select({
       lessonTitle: lessons.title,
       courseTitle: courses.title,
@@ -132,15 +138,15 @@ function isAnswerer(
 // posted from. Nobody hears about a reply under a deleted Lesson Question,
 // and `deliver` drops the author replying in their own thread.
 function lessonReplyPosted(
-  db: Db,
+  database: Db,
   reply: LessonComment,
   question: LessonComment,
   lessonCourse: LessonCourse
 ): NotifyIntent[] {
   if (question.deletedAt !== null) return [];
 
-  const replier = findPerson(db, reply.userId);
-  const author = findPerson(db, question.userId);
+  const replier = findPerson(database, reply.userId);
+  const author = findPerson(database, question.userId);
   if (!replier || !author) return [];
 
   return [
@@ -161,14 +167,14 @@ function lessonReplyPosted(
 // The course's Instructor hears of a Lesson Question only when it enters
 // their unanswered-questions queue: not when an answerer posted it.
 function lessonQuestionPosted(
-  db: Db,
+  database: Db,
   question: LessonComment,
   lessonCourse: LessonCourse
 ): NotifyIntent[] {
-  const author = findPerson(db, question.userId);
+  const author = findPerson(database, question.userId);
   if (!author || isAnswerer(author, lessonCourse)) return [];
 
-  const instructor = findPerson(db, lessonCourse.instructorId);
+  const instructor = findPerson(database, lessonCourse.instructorId);
   if (!instructor) return [];
 
   return [
@@ -192,13 +198,13 @@ function lessonQuestionPosted(
 // Deleting an already deleted Lesson Comment changes nothing. Deleting
 // notifies nobody.
 export function deleteLessonComment(
-  db: Db,
+  database: Db,
   commentId: number,
   userId: number,
   isStaff: boolean,
   now: Date
 ): LessonComment & Deliverable {
-  const existing = findLessonComment(db, commentId);
+  const existing = findLessonComment(database, commentId);
   if (!existing) {
     throw new Error("Comment not found");
   }
@@ -209,7 +215,7 @@ export function deleteLessonComment(
     return { ...existing, markRead: [] };
   }
 
-  const deleted = db
+  const deleted = database
     .update(comments)
     .set({ deletedAt: now.toISOString() })
     .where(eq(comments.id, commentId))
@@ -229,7 +235,7 @@ export function deleteLessonComment(
 // Only the author may edit, and only while the Lesson Comment is not deleted.
 // Editing notifies nobody.
 export function editLessonComment(
-  db: Db,
+  database: Db,
   commentId: number,
   userId: number,
   body: string,
@@ -237,7 +243,7 @@ export function editLessonComment(
 ): LessonComment & Deliverable {
   const trimmed = validBody(body);
 
-  const existing = findLessonComment(db, commentId);
+  const existing = findLessonComment(database, commentId);
   if (!existing) {
     throw new Error("Comment not found");
   }
@@ -248,7 +254,7 @@ export function editLessonComment(
     throw new Error("You can only edit your own comments");
   }
 
-  return db
+  return database
     .update(comments)
     .set({ body: trimmed, editedAt: now.toISOString() })
     .where(eq(comments.id, commentId))

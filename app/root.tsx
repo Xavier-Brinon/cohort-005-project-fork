@@ -1,3 +1,5 @@
+import "./app.css";
+
 import {
   isRouteErrorResponse,
   Links,
@@ -9,7 +11,6 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import "./app.css";
 
 const darkModeScript = `
 (function() {

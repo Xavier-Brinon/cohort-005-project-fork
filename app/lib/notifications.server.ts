@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+
 import type { PurchaseKind } from "~/lib/refund-rules";
 
 // ─── In-app Notifications ───
@@ -20,7 +21,7 @@ import type { PurchaseKind } from "~/lib/refund-rules";
 // One entry per Knock workflow (`.knock/workflows/<type>/`). The value is the
 // trigger `data` that workflow's template reads. Add a type here to add one.
 
-export type NotificationData = {
+export interface NotificationData {
   "refund-request-opened": {
     refundRequestId: number;
     buyerName: string;
@@ -51,7 +52,7 @@ export type NotificationData = {
     excerpt: string;
     url: string;
   };
-};
+}
 
 export type NotificationType = keyof NotificationData;
 
@@ -68,26 +69,32 @@ export type MarkableType = keyof typeof SUBJECT_KEYS;
 
 // A person as Knock sees them, identified inline at trigger time. Their Knock
 // user id is `String(id)`.
-export type Person = { id: number; name: string };
+export interface Person {
+  id: number;
+  name: string;
+}
 
-export type Notification<T extends NotificationType> = {
+export interface Notification<T extends NotificationType> {
   actor: Person;
   recipients: Person[];
   data: NotificationData[T];
-};
+}
 
 export type NotifyIntent = {
   [T in NotificationType]: { type: T } & Notification<T>;
 }[NotificationType];
 
-export type MarkReadIntent = { type: MarkableType; subjectId: number };
+export interface MarkReadIntent {
+  type: MarkableType;
+  subjectId: number;
+}
 
 // What a domain write returns for `deliver`. Both lists are optional, so a
 // write result can be passed straight in.
-export type Deliverable = {
+export interface Deliverable {
   notify?: readonly NotifyIntent[];
   markRead?: readonly MarkReadIntent[];
-};
+}
 
 // ─── Notifier ───
 
@@ -102,11 +109,11 @@ export interface Notifier {
   markRead(type: MarkableType, subjectId: number): Promise<void>;
 }
 
-export type KnockConfig = {
+export interface KnockConfig {
   secretKey: string;
   // The in-app feed channel (`cadence-in-app`) that `markRead` updates.
   feedChannelId: string | undefined;
-};
+}
 
 export function knockNotifier(config: KnockConfig): Notifier {
   // Imported lazily: `new Knock()` throws without a key, and tests and

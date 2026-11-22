@@ -1,8 +1,9 @@
 import { generateKeyPairSync, verify } from "node:crypto";
 import { describe, expect, it } from "vitest";
+
 import {
-  notificationFeedProps,
   type FeedConfig,
+  notificationFeedProps,
 } from "./notification-feed.server";
 
 const { privateKey, publicKey } = generateKeyPairSync("rsa", {
@@ -66,13 +67,13 @@ describe("notificationFeedProps", () => {
     const [header, payload, signature] = props.userToken.split(".");
     expect(decode(header)).toMatchObject({ alg: "RS256" });
     expect(decode(payload)).toMatchObject({ sub: "3" });
-    const signed = verify(
+    const isSigned = verify(
       "RSA-SHA256",
       Buffer.from(`${header}.${payload}`),
       publicKey,
       Buffer.from(signature, "base64url")
     );
-    expect(signed).toBe(true);
+    expect(isSigned).toBe(true);
   });
 });
 

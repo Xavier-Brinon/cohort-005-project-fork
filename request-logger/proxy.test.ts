@@ -1,17 +1,18 @@
 import http from "node:http";
 import net from "node:net";
-import { describe, it, expect, afterEach } from "vitest";
-import { resolveChoice } from "./agents.ts";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { resolveChoice } from "./agents";
 import {
   BURST_THRESHOLD,
   BURST_WINDOW_MS,
   burstKey,
+  type BurstState,
   rejectUpgrade,
   trackBurst,
   upstreamConnection,
   upstreamPathPrefix,
-  type BurstState,
-} from "./proxy.ts";
+} from "./proxy";
 
 const PORT = { port: 8787, platform: "linux" as NodeJS.Platform };
 

@@ -1,36 +1,39 @@
+import { and, desc, eq, isNull, ne, notExists, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
+import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, data, isRouteErrorResponse, useFetcher } from "react-router";
+import { data, isRouteErrorResponse, Link, useFetcher } from "react-router";
 import { toast } from "sonner";
 import { z } from "zod";
-import type { Route } from "./+types/instructor.questions";
-import { requireInstructorOrAdmin, requireStaff } from "~/lib/access.server";
-import { renderComment } from "~/lib/comment-markdown.server";
+
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import { Textarea } from "~/components/ui/textarea";
 import { UserAvatar } from "~/components/user-avatar";
-import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
-import { cn, daysSince, formatRelativeTime } from "~/lib/utils";
-import { MAX_COMMENT_LENGTH } from "~/lib/comments";
-import { createLessonComment, findLessonComment } from "~/lib/comments.server";
-import { deliver } from "~/lib/notifications.server";
-import { parseFormData } from "~/lib/validation";
 import { db } from "~/db";
 import {
   comments,
   courses,
   lessons,
   modules,
-  users,
   UserRole,
+  users,
 } from "~/db/schema";
-import { eq, ne, or, and, isNull, notExists, sql, desc } from "drizzle-orm";
-import { alias } from "drizzle-orm/sqlite-core";
+import { requireInstructorOrAdmin, requireStaff } from "~/lib/access.server";
+import { renderComment } from "~/lib/comment-markdown.server";
+import { MAX_COMMENT_LENGTH } from "~/lib/comments";
+import { createLessonComment, findLessonComment } from "~/lib/comments.server";
+import { deliver } from "~/lib/notifications.server";
+import type { Markdown } from "~/lib/text";
+import { cn, daysSince, formatRelativeTime } from "~/lib/utils";
+import { parseFormData } from "~/lib/validation";
 
-type QueuedQuestion = {
+import type { Route } from "./+types/instructor.questions";
+
+interface QueuedQuestion {
   id: number;
-  body: string;
+  body: Markdown;
   createdAt: string;
   lessonId: number;
   lessonTitle: string;
@@ -39,7 +42,7 @@ type QueuedQuestion = {
   authorId: number;
   authorName: string;
   authorAvatarUrl: string | null;
-};
+}
 
 function getUnansweredQuestions(instructorId: number | null): QueuedQuestion[] {
   const author = alias(users, "author");

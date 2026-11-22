@@ -1,6 +1,6 @@
 # Cadence
 
-Cadence sells video courses to students. This glossary covers the language around buying, taking and refunding courses.
+Cadence sells video courses to students. This glossary covers the language around buying, taking and refunding courses, and telling people about it.
 
 ## Language
 
@@ -127,3 +127,16 @@ _Avoid_: Viewed, Opened
 **Read Notification**:
 A Notification the person has clicked, marked read themselves, or whose subject someone has already dealt with (its Refund Request decided, its Lesson Question answered or deleted). Being seen does not make it read.
 _Avoid_: Dismissed, Cleared, Done
+
+### Bookmarks and Notes
+
+**Bookmark**:
+A Student's flag on a Lesson, so they can find it again. One per Student per
+Lesson, and the Student is the only one who sees it.
+_Avoid_: Favourite, star, saved item
+
+**Note**:
+A Student's own writing about a Lesson, private to the Student who wrote it.
+One per Student per Lesson. A Note is not a Lesson Comment: a Lesson Comment is
+addressed to other people, a Note is addressed to nobody.
+_Avoid_: Annotation, scratchpad, memo
