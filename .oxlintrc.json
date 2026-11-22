@@ -4,6 +4,9 @@
 // each rule to the ESLint rule it replaced.
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // No comments in code (ways-of-working/no-comments): the shared config
+  // loads the rule's plugin and sets it to error.
+  "extends": ["./node_modules/oxlint-config/oxlintrc.json"],
   "categories": { "correctness": "off" },
   "plugins": ["eslint", "typescript", "react", "import", "jsx-a11y", "vitest"],
   "jsPlugins": [
