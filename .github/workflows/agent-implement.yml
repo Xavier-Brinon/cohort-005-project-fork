@@ -25,12 +25,24 @@ name: Agent — Implement A Ticket
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. To change the
 #     agent or how it is billed, see
 #     .sandcastle/agent-workflows/shared/common.ts.
-#   secrets.FACTORY_PAT — a fine-grained PAT on this repository with Issues,
-#     Pull requests, Contents, Workflows and Actions, all read/write. Every
-#     step that talks to GitHub uses it: reading the ticket, pushing, opening
-#     the pull request, commenting. One token for the whole factory, because some
-#     hops need it anyway — by default the built-in GITHUB_TOKEN cannot open a
-#     pull request at all, and a label it applies starts no workflow.
+#   The `implement` environment, named by the job. It holds the
+#     xb-agent-builder app's client id (vars.APP_CLIENT_ID) and private key
+#     (an environment secret). The key goes to the minting steps and nowhere
+#     else. Every step that talks to GitHub uses a token minted from them:
+#     reading the ticket, pushing, opening the pull request, commenting. It
+#     acts as xb-agent-builder[bot], lasts an hour at most, and is revoked
+#     when the job ends.
+#   The app has Contents, Pull requests, Issues and Actions: read and write.
+#     It has no Workflows permission, so a push that touches .github/ is
+#     refused: the agent cannot rewrite its own workflow. Two tokens are
+#     minted, each narrowed with `permission-*`. The first, before the agent,
+#     has Issues only. The second is minted after the agent, because the
+#     build can run close to the first one's hour, and it adds Contents and
+#     Pull requests for the push and the pull request.
+#   It cannot reach the other roles' keys. Each app's key sits in an
+#     environment of its own, the job gets only the environment it names, and
+#     every environment admits runs from `main` alone. Naming another one
+#     takes a change merged to `main`, which this app cannot push.
 #   secrets.GITHUB_TOKEN — supplied by Actions, and now used for one thing:
 #     the checkout. The `permissions:` block below shrinks it to match.
 #   The `agent:implement` label. A fresh clone of this repository does not
@@ -73,8 +85,8 @@ on:
 
 # The permissions block. It is per-workflow, and it is a ceiling on the
 # GITHUB_TOKEN — and the GITHUB_TOKEN now only checks the code out. Everything
-# that writes goes through FACTORY_PAT, whose reach is set where you created
-# it, not here.
+# that writes goes through the builder app's tokens, whose ceiling is the
+# app's own permissions, set in GitHub's settings and not here.
 permissions:
   contents: read # the checkout
 
@@ -90,6 +102,7 @@ jobs:
     if: github.event.label.name == 'agent:implement'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    environment: implement
 
     env:
       GH_REPO: ${{ github.repository }}
@@ -99,11 +112,19 @@ jobs:
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     steps:
+      - name: Mint the builder token for the ticket
+        id: token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-issues: write
+
       - name: Transition labels
         # The trigger comes off, so putting it back on is how you retry.
         # `agent:in-progress` goes on until the run ends, however it ends.
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           # A fresh clone of this repository does not have these labels yet.
           gh label create "agent:in-progress" --color FBCA04 \
@@ -160,21 +181,30 @@ jobs:
 
       - name: Read the ticket
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          # The comments an agent may read, from the REST API's pages. A comment
+          # counts when its author has write access to this repo, or when it is the
+          # explorer app's findings. REST names a bot `<app>[bot]`, a login no person
+          # can take, so nobody can pose as the app. The factory's status lines carry
+          # a hidden `<!-- factory:status -->` and are dropped.
+          TRUSTED_COMMENTS: >-
+            add // [] | map(select(
+              ((.author_association | IN("OWNER", "MEMBER", "COLLABORATOR"))
+                or (.user.type == "Bot" and .user.login == "xb-agent-explorer[bot]"))
+              and ((.body // "") | contains("<!-- factory:status -->") | not))
+            | {author: {login: .user.login}, authorAssociation: .author_association,
+               createdAt: .created_at, body})
         run: |
           set -euo pipefail
-          # A comment reaches the agent only when the person who wrote it has
-          # write access to this repo -- the same filter agent-explore.yml
-          # uses. The factory posts with FACTORY_PAT, so its comments are
-          # yours, and they pass. Explore's findings should: they are what the
-          # implementer most needs to see. The factory's status lines should
-          # not ("Building", "run failed"), so every one of them carries a
-          # hidden `<!-- factory:status -->` and is dropped here.
-          gh issue view "$ISSUE_NUMBER" --json number,title,body,labels,comments \
-            | jq '.comments |= map(select(
-                (.authorAssociation | IN("OWNER", "MEMBER", "COLLABORATOR"))
-                and (.body | contains("<!-- factory:status -->") | not)))' \
-            > /tmp/ticket.json
+          # The same filter agent-explore.yml uses. Explore's findings pass:
+          # they are what the implementer most needs to see, and they are
+          # posted by xb-agent-explorer[bot], which the filter names. The
+          # factory's status lines ("Building", "run failed") do not.
+          gh issue view "$ISSUE_NUMBER" --json number,title,body,labels > /tmp/issue.json
+          gh api --paginate "repos/$GH_REPO/issues/$ISSUE_NUMBER/comments" \
+            | jq -s "$TRUSTED_COMMENTS" > /tmp/comments.json
+          jq --slurpfile comments /tmp/comments.json '.comments = $comments[0]' \
+            /tmp/issue.json > /tmp/ticket.json
           jq -r '
             "# " + .title + "\n\n" + .body
             + (if (.comments | length) > 0
@@ -188,6 +218,19 @@ jobs:
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: node .sandcastle/agent-workflows/implement/implement.ts
+
+      - name: Mint a fresh builder token to ship with
+        # After the agent, not before: the build can run close to the first
+        # token's hour. always(), so the failure steps below have one too.
+        id: ship-token
+        if: always()
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
 
       - name: Check the agent committed
         # The agent owns the commits now, so this step owns the question of
@@ -212,7 +255,7 @@ jobs:
 
       - name: Push
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
         run: |
           set -euo pipefail
           # The token exists for this one command. Hooks are off, so nothing
@@ -225,14 +268,13 @@ jobs:
       - name: Open the draft pull request
         id: pr
         env:
-          # The one hop that never had a choice: by default the built-in
-          # GITHUB_TOKEN is not allowed to open a pull request, so
-          # `gh pr create` with it fails. This step runs nothing the agent
-          # wrote: it reads the agent's summary as text and hands it to `gh`.
-          # `--attach` uploads the agent's screenshots and swaps each matching
-          # /tmp/evidence path in the body for its URL. It needs a PAT too:
-          # GITHUB_TOKEN is rejected.
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          # By default the built-in GITHUB_TOKEN is not allowed to open a
+          # pull request, so this is the app's token. This step runs nothing
+          # the agent wrote: it reads the agent's summary as text and hands it
+          # to `gh`. `--attach` uploads the agent's screenshots and swaps
+          # each matching /tmp/evidence path in the body for its URL. It needs
+          # push access, which the builder app has and GITHUB_TOKEN lacks here.
+          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
         run: |
           set -euo pipefail
           title="$(gh issue view "$ISSUE_NUMBER" --json title --jq .title)"
@@ -263,13 +305,13 @@ jobs:
       - name: Mark blocked on failure
         if: failure()
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
         run: gh issue edit "$ISSUE_NUMBER" --add-label "agent:blocked" || true
 
       - name: Report back on the ticket
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
           JOB_STATUS: ${{ job.status }}
           PR_URL: ${{ steps.pr.outputs.url }}
         run: |
@@ -284,5 +326,5 @@ jobs:
       - name: Always remove in-progress
         if: always()
         env:
-          GH_TOKEN: ${{ secrets.FACTORY_PAT }}
+          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
         run: gh issue edit "$ISSUE_NUMBER" --remove-label "agent:in-progress" || true

@@ -1,0 +1,65 @@
+name: Agent — Hand A Pull Request To The Reviewer
+
+# The doorbell for agent-review.yml.
+#
+# WHAT TRIGGERS IT
+#   Someone puts the `agent:review` label on a pull request: a person, or the
+#   builder app at the end of an implement run.
+#
+# WHAT IT DOES
+#   One call: it starts agent-review.yml on `main` with the pull request's
+#   number. It runs no code from the pull request, holds no secret and names
+#   no environment. Its GITHUB_TOKEN has `actions: write` and nothing else.
+#
+# WHY IT EXISTS
+#   The reviewer's key sits in the `review` environment, which admits runs
+#   from `main` only. A `pull_request` run is checked against
+#   `refs/pull/<n>/merge`, so the review could never get in if the label
+#   started it directly, and opening the environment to pull request refs
+#   would let any branch's own workflow file read the key. A dispatched run on
+#   `main` runs `main`'s copy of agent-review.yml.
+#
+#   GitHub lets the built-in GITHUB_TOKEN start a `workflow_dispatch` run,
+#   though not a run triggered by a label it applies. So this hop needs no app.
+#
+# WHAT IT NEEDS
+#   secrets.GITHUB_TOKEN — supplied by Actions, scoped to `actions: write`.
+#   No environment and no app: it cannot reach any role's key.
+#
+# A CAUTION THAT COMES WITH IT
+#   `pull_request`, so this file runs as the pull request's branch has it. A
+#   collaborator's branch could change it, but such a branch could dispatch
+#   the review by hand anyway. A fork's run gets a read-only token, so it can
+#   dispatch nothing, and agent-review.yml refuses a fork's PR in any case.
+#   No app has Workflows, so no agent can change this file.
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions: {}
+
+jobs:
+  relay:
+    # Every other label stops here, for free. So does a fork's PR: its token
+    # could not dispatch, and the run would only go red.
+    if: >-
+      github.event.label.name == 'agent:review' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      actions: write # gh workflow run, and nothing else
+
+    steps:
+      - name: Start the review on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          echo "Asking agent-review.yml on $DEFAULT_BRANCH to review #$PR_NUMBER."
+          gh workflow run agent-review.yml --ref "$DEFAULT_BRANCH" --field "pr=$PR_NUMBER"
