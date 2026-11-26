@@ -1,5 +1,6 @@
 import { signUserToken } from "@knocklabs/node";
 
+import type { NotificationFeedProps } from "~/lib/notification-feed";
 import type { Person } from "~/lib/notifications.server";
 
 // ─── Notification feed (the bell) ───
@@ -15,13 +16,6 @@ export interface FeedConfig {
   publicKey: string | undefined;
   feedChannelId: string | undefined;
   signingKey: string | undefined;
-}
-
-export interface NotificationFeedProps {
-  apiKey: string;
-  feedChannelId: string;
-  userId: string;
-  userToken: string;
 }
 
 export function feedConfigFromEnvironment(): FeedConfig {
