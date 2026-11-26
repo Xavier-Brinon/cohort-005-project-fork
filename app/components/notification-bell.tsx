@@ -17,7 +17,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 
-import type { NotificationFeedProps } from "~/lib/notification-feed.server";
+import type { NotificationFeedProps } from "~/lib/notification-feed";
 
 // ─── Notification bell ───
 // Knock's prebuilt bell and popover, in the sidebar header. Knock's React SDK
