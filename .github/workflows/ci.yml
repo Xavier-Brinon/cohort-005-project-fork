@@ -1,0 +1,42 @@
+name: CI
+
+# Server-side verification gate for pull requests and pushes to `main`.
+# Runs the same full check suite that `.githooks/pre-push` runs locally, so
+# skipping a local git hook is not enough to merge into `main`.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Set up node and aube with mise
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+
+      - name: Install dependencies
+        run: aube ci
+
+      - name: Migrate and seed the database
+        run: |
+          aube run db:migrate
+          aube run db:seed
+
+      - name: Run verification checks
+        run: node --run check
