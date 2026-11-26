@@ -80,8 +80,8 @@ name: Agent — Explore The Tickets
 #     environment of its own, a job gets only the environment it names, and
 #     every environment admits runs from `main` alone. Naming another one
 #     takes a change merged to `main`.
-#   Screenshots are not attached inline: GitHub uploads them only for a token
-#     with push access, and this app has none. They stay in the run's
+#   Screenshots are not attached inline: `gh --attach` rejects GitHub App
+#     installation tokens, even with Contents write. They stay in the run's
 #     `explore-evidence` artifact, and the findings comment links to it.
 #   secrets.GITHUB_TOKEN — supplied by Actions, and used only to check the
 #     code out. Scoped per job below.
@@ -323,7 +323,7 @@ jobs:
             fi
 
             jq -r '.comment' <<< "$entry" > /tmp/comment.md
-            # This app cannot upload images: that takes push access. So each
+            # `gh --attach` rejects GitHub App installation tokens. So each
             # `![alt](/tmp/evidence/<file>)` becomes the file's name, and the
             # comment links to the run's artifact that holds the file.
             if grep -q '/tmp/evidence/' /tmp/comment.md; then

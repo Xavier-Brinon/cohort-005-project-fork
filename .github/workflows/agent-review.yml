@@ -329,10 +329,20 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "number=${url##*/}" >> "$GITHUB_OUTPUT"
 
+      - name: Keep the screenshots
+        id: evidence
+        if: always() && steps.pr.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: review-evidence
+          path: /tmp/evidence/*.png
+          if-no-files-found: ignore
+
       - name: Post the verdict on the pull request
         if: always() && steps.pr.outcome == 'success'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
           FALLBACK: ${{ steps.push.outputs.fallback }}
           FALLBACK_URL: ${{ steps.fallback.outputs.url }}
         run: |
@@ -347,6 +357,13 @@ jobs:
               echo "The fixes are on \`$FALLBACK_BRANCH\`${FALLBACK_URL:+, opened as ${FALLBACK_URL}}. Labelled \`agent:blocked\`: keep one of the two PRs."
             } >> /tmp/review-verdict.md
           fi
+          # `gh --attach` rejects GitHub App installation tokens, even with
+          # Contents write. Swap each `![alt](/tmp/evidence/<file>)` for the
+          # file's name and link to the run's artifact.
+          if grep -q '/tmp/evidence/' /tmp/review-verdict.md; then
+            sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' /tmp/review-verdict.md
+            printf '\n\nScreenshots: [review-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> /tmp/review-verdict.md
+          fi
           {
             echo ""
             echo "---"
@@ -354,12 +371,7 @@ jobs:
             echo "Reviewed by the review workflow — [logs](${RUN_URL}). This run"
             echo "saw the diff, the standards and the ticket, and nothing else."
           } >> /tmp/review-verdict.md
-          # Uploads the agent's screenshots and swaps each /tmp/evidence path
-          # in the body for its URL. nullglob: none means no --attach.
-          shopt -s nullglob
-          attach=()
-          for png in /tmp/evidence/*.png; do attach+=(--attach "$png"); done
-          gh pr comment "$PR_NUMBER" --body-file /tmp/review-verdict.md "${attach[@]}"
+          gh pr comment "$PR_NUMBER" --body-file /tmp/review-verdict.md
 
       - name: Post the inline comments
         # One review, event COMMENT, with a comment on each line the agent

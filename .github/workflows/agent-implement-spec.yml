@@ -118,10 +118,10 @@ name: Agent — Implement A Spec
 #   so the reviewer would never wake. A label applied with an app's token
 #   does start one.
 #
-#   Screenshots: the decomposer cannot attach them, since GitHub uploads them
-#   only for a token with push access. They stay in the run's
-#   `decompose-evidence` artifact, and each ticket links to it. The builder
-#   can push, so its pull requests still show them inline.
+#   Screenshots: `gh --attach` rejects GitHub App installation tokens, even
+#   with Contents write. Screenshots stay in the run's `decompose-evidence`
+#   or `implement-evidence` artifact, and each ticket or pull request links
+#   to it.
 #
 #   secrets.GITHUB_TOKEN — supplied by Actions, and used for the checkout and
 #     nothing else. `permissions:` shrinks it to match.
@@ -417,7 +417,7 @@ jobs:
               jq -r ".tickets[$i].body" /tmp/queue.json
             } > /tmp/ticket-body.md
 
-            # This app cannot upload images: that takes push access. So each
+            # `gh --attach` rejects GitHub App installation tokens. So each
             # `![alt](/tmp/evidence/<file>)` becomes the file's name, and the
             # ticket links to the run's artifact that holds the file.
             if grep -q '/tmp/evidence/' /tmp/ticket-body.md; then
@@ -595,6 +595,14 @@ jobs:
             -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
             push "https://github.com/${GH_REPO}.git" "HEAD:refs/heads/${BRANCH}"
 
+      - name: Keep the screenshots
+        id: evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: implement-evidence
+          path: /tmp/evidence/*.png
+          if-no-files-found: ignore
+
       - name: Open the draft PR
         id: ship
         env:
@@ -603,10 +611,20 @@ jobs:
           # nothing the agent wrote: it reads the agent's summary as text and
           # hands it to `gh`.
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
         run: |
           set -euo pipefail
           title=$(gh issue view "$TICKET" --json title --jq .title)
           [ -s /tmp/pr-body.md ] || echo "Built by the implement-spec chain." > /tmp/pr-body.md
+
+          # `gh --attach` rejects GitHub App installation tokens, even with
+          # Contents write. Swap each `![alt](/tmp/evidence/<file>)` for the
+          # file's name and link to the run's artifact.
+          if grep -q '/tmp/evidence/' /tmp/pr-body.md; then
+            sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' /tmp/pr-body.md
+            printf '\n\nScreenshots: [implement-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> /tmp/pr-body.md
+          fi
+
           {
             echo ""
             echo "---"
@@ -615,19 +633,12 @@ jobs:
             echo "Built unattended by [this run](${RUN_URL}); nobody has read it yet."
           } >> /tmp/pr-body.md
 
-          # Uploads the agent's screenshots and swaps each /tmp/evidence path
-          # in the body for its URL. nullglob: none means no --attach.
-          shopt -s nullglob
-          attach=()
-          for png in /tmp/evidence/*.png; do attach+=(--attach "$png"); done
-
           url="$(gh pr create \
             --draft \
             --base "${{ github.event.repository.default_branch || 'main' }}" \
             --head "$BRANCH" \
             --title "$title" \
-            --body-file /tmp/pr-body.md \
-            "${attach[@]}")"
+            --body-file /tmp/pr-body.md)"
 
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "shipped=true" >> "$GITHUB_OUTPUT"
