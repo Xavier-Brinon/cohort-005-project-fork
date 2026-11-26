@@ -44,6 +44,9 @@ name: Agent — Implement A Ticket
 #     takes a change merged to `main`, which this app cannot push.
 #   secrets.GITHUB_TOKEN — supplied by Actions, and now used for one thing:
 #     the checkout. The `permissions:` block below shrinks it to match.
+#   Screenshots are not attached inline: `gh --attach` rejects GitHub App
+#     installation tokens, even with Contents write. They stay in the run's
+#     `implement-evidence` artifact, and the pull request links to it.
 #   The `agent:implement` label. A fresh clone of this repository does not
 #     have it, and no workflow can create the label that starts it. Create it
 #     once:
@@ -270,21 +273,37 @@ jobs:
             -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
             push "https://github.com/${GH_REPO}.git" "HEAD:refs/heads/${BRANCH}"
 
+      - name: Keep the screenshots
+        id: evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: implement-evidence
+          path: /tmp/evidence/*.png
+          if-no-files-found: ignore
+
       - name: Open the draft pull request
         id: pr
         env:
           # By default the built-in GITHUB_TOKEN is not allowed to open a
           # pull request, so this is the app's token. This step runs nothing
           # the agent wrote: it reads the agent's summary as text and hands it
-          # to `gh`. `--attach` uploads the agent's screenshots and swaps
-          # each matching /tmp/evidence path in the body for its URL. It needs
-          # push access, which the builder app has and GITHUB_TOKEN lacks here.
+          # to `gh`.
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
         run: |
           set -euo pipefail
           title="$(gh issue view "$ISSUE_NUMBER" --json title --jq .title)"
           body_file=/tmp/pr-body.md
           [ -s "$body_file" ] || echo "Built by the implementer workflow." > "$body_file"
+
+          # `gh --attach` rejects GitHub App installation tokens, even with
+          # Contents write. Swap each `![alt](/tmp/evidence/<file>)` for the
+          # file's name and link to the run's artifact.
+          if grep -q '/tmp/evidence/' "$body_file"; then
+            sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' "$body_file"
+            printf '\n\nScreenshots: [implement-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> "$body_file"
+          fi
+
           {
             echo ""
             echo "---"
@@ -293,18 +312,12 @@ jobs:
             echo "Nobody has read this yet. That is what the draft state is for."
           } >> "$body_file"
 
-          # nullglob: no screenshots means no --attach, and the PR still opens.
-          shopt -s nullglob
-          attach=()
-          for png in /tmp/evidence/*.png; do attach+=(--attach "$png"); done
-
           url="$(gh pr create \
             --draft \
             --base "${{ github.event.repository.default_branch }}" \
             --head "$BRANCH" \
             --title "$title" \
-            --body-file "$body_file" \
-            "${attach[@]}")"
+            --body-file "$body_file")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Mark blocked on failure
