@@ -140,3 +140,9 @@ A Student's own writing about a Lesson, private to the Student who wrote it.
 One per Student per Lesson. A Note is not a Lesson Comment: a Lesson Comment is
 addressed to other people, a Note is addressed to nobody.
 _Avoid_: Annotation, scratchpad, memo
+
+### Accounts
+
+**Email Typo Hint**:
+A suggestion shown under the email field on log-in when the address's domain looks like a misspelling of a common email provider (`Did you mean alice@gmail.com?`). It never blocks the form; the person may ignore it.
+_Avoid_: Email validation, Email error, Autocorrect
