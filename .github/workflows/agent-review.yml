@@ -57,20 +57,35 @@ name: Agent — Review A Pull Request
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token.
 #   The `review` environment, named by the job. It holds the
 #     xb-agent-reviewer app's client id (vars.APP_CLIENT_ID) and private key
-#     (an environment secret). The key goes to the minting steps and nowhere
-#     else. Every step that calls GitHub uses a token minted from them; the
+#     (an environment secret). The key goes to the minting step and nowhere
+#     else. Every step that calls GitHub uses the token minted from them; the
 #     agent's step does not. A token acts as xb-agent-reviewer[bot], lasts an
 #     hour at most, and is revoked when the job ends.
 #   The app has Contents, Pull requests and Issues: read and write, and no
-#     Workflows, so its push of the review's fixes cannot touch .github/. Two
-#     tokens are minted. The first, before the agent, has Issues and Pull
-#     requests, for the labels and for reading the PR and its ticket. The
-#     second is minted after the agent, because the review can run close to
-#     the first one's hour, and adds Contents for the push.
+#     Workflows, so its push of the review's fixes cannot touch .github/. The
+#     job mints one token with all three, as its first step, and every step
+#     that calls GitHub uses it. The job's 30-minute timeout keeps the run
+#     inside the token's hour.
+#   Why one token, minted first: the agent, and the PR's install and seed
+#     scripts, run unsandboxed and as the same user as every later step. A
+#     process they leave running outlives its step and can read the
+#     environment of each step after it. A mint step after the agent would
+#     show that process the private key, which mints tokens until someone
+#     rotates it. And the PR's code was written by the builder's agent, so
+#     that would hand one role's key to another role's code. Minted before
+#     any of that code runs, the key is in no later step's environment, with
+#     one exception: the action's own post step, which revokes the token as
+#     the job ends, is started with the key among its inputs.
+#     Nor is the key gone from the machine. The runner keeps every secret the
+#     job names in its own memory until the job ends, and the job's user has
+#     passwordless sudo, so code that sets out to read that memory can. Only a
+#     job that never names the key is safe from that, which means splitting the
+#     agent from the job that pushes and posts.
 #   Keeping the token out of the agent's environment is tidiness, not a wall:
-#     the agent shares the machine with the steps that push and post. The
-#     real defence is who can reach the agent — same-repo PRs only, and a
-#     label only a collaborator can apply.
+#     a leftover process can read GH_TOKEN from a later step, and a later
+#     step that runs git in the checkout reads a .git/config the agent could
+#     write. That token dies within the hour. The real defence is who can reach the agent — same-repo
+#     PRs only, and a label only a collaborator can apply.
 #   It cannot reach the other roles' keys. Each app's key sits in an
 #     environment of its own, the job gets only the environment it names, and
 #     every environment admits runs from `main` alone.
@@ -100,7 +115,7 @@ run-name: Review PR #${{ inputs.pr }}
 
 # A ceiling on the GITHUB_TOKEN, which only checks the code out. Reading the
 # PR and the ticket, pushing the fixes, posting the verdict and the inline
-# comments, and marking the PR ready all go through the reviewer app's tokens.
+# comments, and marking the PR ready all go through the reviewer app's token.
 permissions:
   contents: read # the checkout
 
@@ -123,12 +138,15 @@ jobs:
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     steps:
-      - name: Mint the reviewer token for the pull request
+      - name: Mint the reviewer token
+        # The job's one token, before the PR's code is on the machine. See
+        # WHAT IT NEEDS for why there is no second one after the agent.
         id: token
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
           permission-issues: write
           permission-pull-requests: write
 
@@ -254,21 +272,10 @@ jobs:
           OUTPUT_DIR: ${{ runner.temp }}
         run: node .sandcastle/agent-workflows/review/review.ts
 
-      - name: Mint a fresh reviewer token to ship with
-        id: ship-token
-        if: always() && steps.pr.outcome == 'success'
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-
       - name: Push the review's fixes
         id: push
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
           if [ -n "$(git status --porcelain)" ]; then
@@ -303,7 +310,7 @@ jobs:
         id: fallback
         if: steps.push.outputs.fallback == 'true'
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
           {
@@ -325,7 +332,7 @@ jobs:
       - name: Post the verdict on the pull request
         if: always() && steps.pr.outcome == 'success'
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           FALLBACK: ${{ steps.push.outputs.fallback }}
           FALLBACK_URL: ${{ steps.fallback.outputs.url }}
         run: |
@@ -360,7 +367,7 @@ jobs:
         # the push was rejected. review.ts already dropped every comment
         # outside the diff, because GitHub rejects the whole review for one.
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           TARGET: ${{ steps.fallback.outputs.number || inputs.pr }}
         run: |
           set -euo pipefail
@@ -380,7 +387,7 @@ jobs:
         # matter. This step runs nothing the agent or the PR wrote: it reads
         # the verdict as text and calls `gh`.
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
           if grep -q '## Standards:' /tmp/review-verdict.md; then
@@ -394,11 +401,11 @@ jobs:
         # a person has to choose between the two PRs.
         if: (failure() || steps.push.outputs.fallback == 'true') && steps.pr.outcome == 'success'
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: gh pr edit "$PR_NUMBER" --add-label "agent:blocked" || true
 
       - name: Always remove in-progress
         if: always() && steps.pr.outcome == 'success'
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: gh pr edit "$PR_NUMBER" --remove-label "agent:in-progress" || true

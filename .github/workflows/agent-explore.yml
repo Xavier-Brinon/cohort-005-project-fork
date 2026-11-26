@@ -58,12 +58,20 @@ name: Agent — Explore The Tickets
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token.
 #   The `explore` environment, named by every job here. It holds the
 #     xb-agent-explorer app's client id (vars.APP_CLIENT_ID) and private key
-#     (an environment secret). Each job mints its own token from them, and
-#     every call this workflow makes to GitHub uses it: listing the batch,
-#     posting the findings, moving the labels, closing duplicates. A token
-#     lasts an hour at most, is revoked when its job ends, and acts as
-#     xb-agent-explorer[bot]. The key goes to the minting step and nowhere
-#     else.
+#     (an environment secret). Each job mints one token from them, never
+#     after the agent's step, and every call this workflow makes to GitHub
+#     uses it: listing the batch, posting the findings, moving the labels,
+#     closing duplicates. A token lasts an hour at most, is revoked when its
+#     job ends, and acts as xb-agent-explorer[bot].
+#   The key goes to the minting step, and to that action's post step, which
+#     revokes the token as the job ends. In `explore` that post step runs
+#     after the agent, unsandboxed and as the same user, so a process the
+#     agent leaves running can read the key from its environment.
+#     Nor is the key gone from the machine. The runner keeps every secret the
+#     job names in its own memory until the job ends, and the job's user has
+#     passwordless sudo, so code that sets out to read that memory can. Only a
+#     job that never names the key is safe from that, which means splitting the
+#     agent from the job that pushes and posts.
 #   The app has Issues: read and write, and nothing else. Each job narrows its
 #     token further with `permission-*`, but a job can never ask for more than
 #     the app holds, so no token here can push, open a pull request or start a
@@ -116,18 +124,19 @@ jobs:
       GH_REPO: ${{ github.repository }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          persist-credentials: false
-
       - name: Mint the explorer token
+        # Before the checkout, and the job's only one. See WHAT IT NEEDS.
         id: token
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-issues: write
+
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: List the batch
         id: batch
