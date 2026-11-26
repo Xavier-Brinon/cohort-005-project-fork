@@ -16,42 +16,27 @@ name: Agent — Review A Pull Request
 #   branch's workflow read the key. A dispatched run on `main` runs `main`'s
 #   copy of this file, and nothing else ever runs beside the key.
 #
-# THE POINT OF THIS FILE: IT IS MEMORY-LESS
-#   This workflow shares nothing with the implementer run. No session, no
-#   transcript, no scratch files, no "as we discussed". It starts from a cold
-#   checkout and three primary sources it fetches itself:
+# MEMORY-LESS BY DESIGN
+#   Shares nothing with the implementer run — cold checkout plus three primary
+#   sources it fetches itself:
 #
 #     1. the diff              — what actually changed
 #     2. CODING_STANDARDS.md   — the rules, at the repo root
-#     3. the originating issue — what was asked for, read from the ticket the
-#                                PR closes, not from the PR description
+#     3. the originating issue — read from the ticket the PR closes, not the PR body
 #
-#   That independence is the whole value. An implementer that has argued
-#   itself into a shortcut will argue a reviewer that shares its context into
-#   the same shortcut. A reviewer that has never seen the argument cannot be.
-#   If you find yourself wanting to pass context from the build run into this
-#   one — that is the instinct to resist.
-#
-#   The agent itself is a Sandcastle script:
-#   .sandcastle/agent-workflows/review/review.ts, with its prompt next to it
-#   in prompt.md. The prompt hands it the repo's own code-review skill.
+#   Do not pass build context here: a shared context inherits the implementer's
+#   shortcuts. The agent is .sandcastle/agent-workflows/review/review.ts
+#   (prompt.md hands it the repo's code-review skill).
 #
 # IT FIXES WHAT IT CAN
-#   A review that only lists findings hands the work to a human. This one
-#   fixes every finding it can, as commits on the PR's branch, and leaves the
-#   rest as inline comments on their file and line. The workflow pushes the
-#   commits, never forced. If someone pushed to the branch during the run,
-#   GitHub rejects the push, and the commits go to a new branch,
-#   `<pr branch>-<run id>`, opened as a draft PR against the same base. The
-#   original PR gets the `agent:blocked` label, because a person has to pick
-#   which to keep.
+#   Fixes every finding it can as commits on the PR's branch and leaves the
+#   rest as inline comments. Pushes are never forced: if the branch moved
+#   during the run, fixes go to `<pr branch>-<run id>` as a draft PR and the
+#   original PR gets `agent:blocked` so a person picks which to keep.
 #
 # HOW IT ENDS: THE PR GOES READY
-#   The implementer opens every PR as a draft, and the draft means "nobody
-#   has read this yet". Once the verdict is posted, somebody has. So the last
-#   step marks the PR ready for review — on a fail as well as a pass. Ready is
-#   not approved. A failing verdict is for a human to read, and the merge is
-#   still a human's.
+#   Once a verdict is posted, the last step marks the PR ready for review (on
+#   fail as well as pass). Ready is not approved; a human still merges.
 #
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token.
