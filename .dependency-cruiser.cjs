@@ -142,6 +142,7 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: "node_modules" },
+    preserveSymlinks: true,
     tsConfig: { fileName: "tsconfig.json" },
     enhancedResolveOptions: {
       extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
