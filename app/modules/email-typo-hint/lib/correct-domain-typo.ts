@@ -7,13 +7,13 @@ const DOMAIN_CORRECTIONS: ReadonlyMap<string, string> = new Map([
 
 export function correctDomainTypo(email: string): string | null {
   const address = email.trim().toLowerCase();
-  const at = address.lastIndexOf("@");
-  if (at < 1) {
+  const atIndex = address.indexOf("@");
+  if (atIndex < 1 || address.includes("@", atIndex + 1)) {
     return null;
   }
-  const corrected = DOMAIN_CORRECTIONS.get(address.slice(at + 1));
+  const corrected = DOMAIN_CORRECTIONS.get(address.slice(atIndex + 1));
   if (corrected === undefined) {
     return null;
   }
-  return `${address.slice(0, at)}@${corrected}`;
+  return `${address.slice(0, atIndex)}@${corrected}`;
 }

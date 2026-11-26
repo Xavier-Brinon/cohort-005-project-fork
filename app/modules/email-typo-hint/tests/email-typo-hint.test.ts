@@ -30,6 +30,7 @@ describe("Email Typo Hint: suggestEmailCorrection", () => {
     ["a string with no @", "gmial.com"],
     ["an empty local part", "@gmial.com"],
     ["an empty local part after trimming", "  @gmial.com"],
+    ["an address with two @ signs", "a@b@gmial.com"],
   ])("returns null for %s", (_label, email) => {
     expect(suggestEmailCorrection(email)).toBeNull();
   });
