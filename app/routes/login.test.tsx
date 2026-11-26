@@ -36,7 +36,7 @@ describe("login page Email Typo Hint", () => {
     const html = renderAfterFailedSubmit("alice@gmial.com");
 
     expect(html).toMatch(
-      /<p id="email-typo-hint" class="[^"]*text-muted-foreground[^"]*">Did you mean <!-- -->alice@gmail.com<!-- -->\?<\/p>/
+      /<p id="email-typo-hint" class="[^"]*text-muted-foreground[^"]*">Did you mean alice@gmail\.com\?<\/p>/
     );
     expect(html).toContain('aria-describedby="email-typo-hint"');
     expect(html).toContain('aria-live="polite"');

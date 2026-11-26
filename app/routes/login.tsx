@@ -140,7 +140,7 @@ export default function Login() {
                       id="email-typo-hint"
                       className="mt-1 text-sm text-muted-foreground"
                     >
-                      Did you mean {emailSuggestion}?
+                      {`Did you mean ${emailSuggestion}?`}
                     </p>
                   )}
                 </div>
