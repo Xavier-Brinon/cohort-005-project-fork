@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { useState } from "react";
 import {
   Form,
   Link,
@@ -17,6 +18,7 @@ import { users } from "~/db/schema";
 import { safeRedirectPath } from "~/lib/redirects";
 import { getCurrentUserId, setCurrentUserId } from "~/lib/session";
 import { parseFormData } from "~/lib/validation";
+import { suggestEmailCorrection } from "~/modules/email-typo-hint";
 
 import type { Route } from "./+types/login";
 
@@ -92,6 +94,10 @@ export default function Login() {
   const isSubmitting = navigation.state === "submitting";
   const [searchParams] = useSearchParams();
   const redirectTo = searchParams.get("redirectTo");
+  const [typedEmail, setTypedEmail] = useState<string | null>(null);
+  const emailSuggestion = suggestEmailCorrection(
+    typedEmail ?? actionData?.values?.email ?? ""
+  );
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
@@ -123,7 +129,21 @@ export default function Login() {
                   placeholder="you@example.com"
                   defaultValue={actionData?.values?.email ?? ""}
                   aria-invalid={!!actionData?.errors?.email}
+                  aria-describedby={
+                    emailSuggestion ? "email-typo-hint" : undefined
+                  }
+                  onChange={(event) => setTypedEmail(event.currentTarget.value)}
                 />
+                <div aria-live="polite">
+                  {emailSuggestion && (
+                    <p
+                      id="email-typo-hint"
+                      className="mt-1 text-sm text-muted-foreground"
+                    >
+                      Did you mean {emailSuggestion}?
+                    </p>
+                  )}
+                </div>
                 {actionData?.errors?.email && (
                   <p className="mt-1 text-sm text-destructive">
                     {actionData.errors.email}{" "}
