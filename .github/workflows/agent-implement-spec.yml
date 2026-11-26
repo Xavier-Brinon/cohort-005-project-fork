@@ -64,8 +64,8 @@ name: Agent — Implement A Spec
 # WHAT IT NEEDS
 #
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. Both agents are
-#                               Sandcastle scripts in
-#                               .sandcastle/agent-workflows/implement-spec/.
+#     Sandcastle scripts in .sandcastle/agent-workflows/implement-spec/.
+#
 #   Two environments, one per role, each holding its app's client id
 #   (vars.APP_CLIENT_ID) and private key (an environment secret):
 #
@@ -77,18 +77,34 @@ name: Agent — Implement A Spec
 #                 Pushes, opens the draft PR, hands it to the reviewer, and
 #                 starts the next run.
 #
-#   Each job mints its own token, narrowed with `permission-*` to what its
-#   steps call, and passes the private key to the minting step and nowhere
-#   else. A token acts as its app's bot, lasts an hour at most, and is
-#   revoked when its job ends. No agent step, and no step that runs code an
-#   agent wrote, has a token in its environment. `decompose` and
-#   `implement` mint twice: a narrow token before the agent, and a fresh
-#   one after it for the writes.
+#   Each job mints one token, as its first step, narrowed with
+#   `permission-*` to everything its steps call, and passes the private key
+#   to that minting step and nowhere else. A token acts as its app's bot,
+#   lasts an hour at most, and is revoked when its job ends. Every job's
+#   `timeout-minutes` stays under 60, so one token lasts the whole job. No
+#   agent step, and no step that runs code an agent wrote, has a token in
+#   its environment.
 #
-#   That keeps the token out of the agent's way, not out of its reach: the
-#   agent shares a machine with the later token steps, unsandboxed. The real
-#   defence is who can reach the agent at all — collaborator-only issues and
-#   comments, and labels only a collaborator can apply.
+#   Why one token, minted first: the agents, and the repo's install and seed
+#   scripts, run unsandboxed, as the same user as every later step. A process
+#   they leave running outlives its step and can read the environment of
+#   each step after it. A mint step after the agent would show that process
+#   the private key, which mints tokens until someone rotates it. Minted
+#   first, the key is in no later step's environment, with one exception: the
+#   action's own post step, which revokes the token as the job ends, is
+#   started with the key among its inputs.
+#   Nor is the key gone from the machine. The runner keeps every secret the
+#   job names in its own memory until the job ends, and the job's user has
+#   passwordless sudo, so code that sets out to read that memory can. Only a
+#   job that never names the key is safe from that, which means splitting the
+#   agent from the job that pushes and posts.
+#
+#   That keeps the token out of the agent's way, not out of its reach: a
+#   leftover process can still read GH_TOKEN from a later step, and `gh pr
+#   create` runs git in a checkout whose .git/config the agent could write.
+#   That token dies within the hour. The real defence is who can reach the agent
+#   at all — collaborator-only issues and comments, and labels only a
+#   collaborator can apply.
 #
 #   A job cannot reach another role's key. It gets only the environment it
 #   names, and every environment admits runs from `main` alone, so naming
@@ -106,9 +122,10 @@ name: Agent — Implement A Spec
 #   only for a token with push access. They stay in the run's
 #   `decompose-evidence` artifact, and each ticket links to it. The builder
 #   can push, so its pull requests still show them inline.
-#   secrets.GITHUB_TOKEN      — supplied by Actions, and used for the checkout
-#                               and nothing else. `permissions:` shrinks it to
-#                               match.
+#
+#   secrets.GITHUB_TOKEN — supplied by Actions, and used for the checkout and
+#     nothing else. `permissions:` shrinks it to match.
+#
 #   The `agent:implement-spec` label. A fresh clone of this repository does
 #     not have it, and no workflow can create the label that starts it. Create
 #     it once (the cron and the button need no label):
@@ -307,18 +324,20 @@ jobs:
       SPEC: ${{ needs.survey.outputs.spec }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          persist-credentials: false
-
-      - name: Mint the decomposer token to read the spec
+      - name: Mint the decomposer token
+        # The job's one token, before the checkout. See WHAT IT NEEDS for why
+        # there is no second one after the agent.
         id: token
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-issues: read
+          permission-issues: write
+
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
       - name: Read the spec
         env:
@@ -357,17 +376,9 @@ jobs:
           path: /tmp/evidence/*.png
           if-no-files-found: ignore
 
-      - name: Mint the decomposer token to write the queue
-        id: write-token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-issues: write
-
       - name: Write the queue as issues
         env:
-          GH_TOKEN: ${{ steps.write-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -436,7 +447,8 @@ jobs:
     needs: survey
     if: needs.survey.outputs.mode == 'implement'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # Under the token's hour, so its one token outlives the job.
+    timeout-minutes: 50
     environment: implement
 
     env:
@@ -447,6 +459,18 @@ jobs:
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     steps:
+      - name: Mint the builder token
+        # The job's one token, before the checkout. See WHAT IT NEEDS for why
+        # there is no second one after the agent.
+        id: token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -469,14 +493,6 @@ jobs:
         run: |
           aube run db:migrate
           aube run db:seed
-
-      - name: Mint the builder token for the ticket
-        id: token
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-issues: write
 
       - name: Claim the ticket
         # Moving the label first is what stops a cron tick that lands during a
@@ -547,17 +563,6 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: node .sandcastle/agent-workflows/implement-spec/build.ts
 
-      - name: Mint a fresh builder token to ship with
-        id: ship-token
-        if: always()
-        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
-        with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-          permission-issues: write
-
       - name: Check the agent committed
         # A run with no commit fails here, so the ticket is parked with
         # `agent:blocked` below instead of shipping an empty PR.
@@ -580,7 +585,7 @@ jobs:
 
       - name: Push
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
           # The token reaches git for this one push, with hooks off, so
@@ -597,7 +602,7 @@ jobs:
           # default it is not allowed to open a pull request. This step runs
           # nothing the agent wrote: it reads the agent's summary as text and
           # hands it to `gh`.
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
           title=$(gh issue view "$TICKET" --json title --jq .title)
@@ -637,7 +642,7 @@ jobs:
           # workflow cannot trigger itself. With GITHUB_TOKEN the label lands,
           # the run goes green, and the reviewer never wakes. A label applied
           # with the builder app's token does fire it.
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -652,7 +657,7 @@ jobs:
       - name: Close the ticket and move the queue on
         if: always()
         env:
-          GH_TOKEN: ${{ steps.ship-token.outputs.token }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           PR_URL: ${{ steps.ship.outputs.url }}
         run: |
           set -euo pipefail
