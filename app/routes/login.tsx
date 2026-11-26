@@ -146,6 +146,9 @@ export default function Login() {
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? "Logging in..." : "Log In"}
               </Button>
+              <p className="text-center text-sm text-muted-foreground">
+                No password needed — enter the email you signed up with.
+              </p>
             </Form>
           </CardContent>
         </Card>
