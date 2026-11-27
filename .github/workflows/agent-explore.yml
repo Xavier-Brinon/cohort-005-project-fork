@@ -55,7 +55,10 @@ name: Agent — Explore The Tickets
 #   its prompt next to it in prompt.md.
 #
 # WHAT IT NEEDS
-#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token.
+#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
+#     model live in one place: .sandcastle/agent-workflows/shared/model.ts
+#     (model overridable via AGENT_MODEL). Resolved before the
+#     agent runs; $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `explore` environment, named by every job here. It holds the
 #     xb-agent-explorer app's client id (vars.APP_CLIENT_ID) and private key
 #     (an environment secret). Each job mints one token from them, never
@@ -113,12 +116,13 @@ jobs:
     permissions:
       contents: read # the checkout. The tickets are read with the app token.
 
-    # The batch it was given, and the plan it came back with. The apply job
-    # reads both.
+    # The batch it was given, the plan it came back with, and the model that
+    # produced it. The apply and finish jobs read them.
     outputs:
       batch: ${{ steps.batch.outputs.numbers }}
       plan: ${{ steps.plan.outputs.json }}
       evidence: ${{ steps.evidence.outputs.artifact-url }}
+      model: ${{ steps.configured_model.outputs.model_id }}
 
     env:
       GH_REPO: ${{ github.repository }}
@@ -201,6 +205,18 @@ jobs:
         # The versions come from mise.toml, the same pins as on your machine.
         uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
 
+      - name: Resolve configured model
+        id: configured_model
+        if: steps.batch.outputs.numbers != '[]'
+        run: |
+          set -euo pipefail
+          model_id="$(node .sandcastle/agent-workflows/shared/model.ts | jq -r '"\(.provider)/\(.model)"')"
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid configured agent identity: $model_id"
+            exit 1
+          }
+          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
       - name: Install dependencies
         if: steps.batch.outputs.numbers != '[]'
         run: aube ci
@@ -219,6 +235,19 @@ jobs:
         # The plan comes back as plan.json, shaped and validated by
         # .sandcastle/agent-workflows/explore/plan-schema.ts.
         run: node .sandcastle/agent-workflows/explore/explore.ts
+
+      - name: Cross-check agent.json
+        if: steps.batch.outputs.numbers != '[]'
+        env:
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
+        run: |
+          set -euo pipefail
+          [ -s "$RUNNER_TEMP/agent.json" ] || { echo "::error::Missing $RUNNER_TEMP/agent.json"; exit 1; }
+          reported="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          if [ "$reported" != "$AGENT_MODEL_ID" ]; then
+            echo "::error::agent.json reported ${reported}, expected ${AGENT_MODEL_ID}"
+            exit 1
+          fi
 
       - name: Hand the plan to the apply job
         id: plan
@@ -252,6 +281,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       EVIDENCE_URL: ${{ needs.explore.outputs.evidence }}
+      AGENT_MODEL_ID: ${{ needs.explore.outputs.model }}
 
     steps:
       - name: Check the plan
@@ -323,6 +353,7 @@ jobs:
             fi
 
             jq -r '.comment' <<< "$entry" > /tmp/comment.md
+            perl -0777 -i -pe 's/<!--\s*factory:model\b[\s\S]*?-->//gi' /tmp/comment.md
             # `gh --attach` rejects GitHub App installation tokens. So each
             # `![alt](/tmp/evidence/<file>)` becomes the file's name, and the
             # comment links to the run's artifact that holds the file.
@@ -330,7 +361,8 @@ jobs:
               sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' /tmp/comment.md
               printf '\n\nScreenshots: [explore-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> /tmp/comment.md
             fi
-            printf '\n\n---\n\n_%s_ [Logs](%s)\n' "$next" "$RUN_URL" >> /tmp/comment.md
+            printf '\n\n---\n\n_%s_ [Logs](%s)\n\n<!-- factory:model=%s role=explorer run=%s -->\n' \
+              "$next" "$RUN_URL" "$AGENT_MODEL_ID" "$GITHUB_RUN_ID" >> /tmp/comment.md
             gh issue comment "$n" --body-file /tmp/comment.md
 
             # `agent:in-progress` comes off: this issue is done, and the
@@ -360,6 +392,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       BATCH: ${{ needs.explore.outputs.batch }}
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      AGENT_MODEL_ID: ${{ needs.explore.outputs.model || 'unknown/unknown' }}
 
     steps:
       - name: Mint the explorer token
@@ -381,7 +414,7 @@ jobs:
               | grep -qx "agent:in-progress" || continue
             gh issue edit "$n" --add-label "agent:blocked" || true
             gh issue comment "$n" --body \
-              "Explore run **failed** — [logs](${RUN_URL}). Re-add \`agent:explore\` to retry. <!-- factory:status -->"
+              "Explore run **failed** — [logs](${RUN_URL}). Re-add \`agent:explore\` to retry. <!-- factory:status --> <!-- factory:model=${AGENT_MODEL_ID} role=explorer run=${GITHUB_RUN_ID} -->"
           done
 
       - name: Always remove in-progress

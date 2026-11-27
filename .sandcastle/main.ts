@@ -1,5 +1,6 @@
 import { run, claudeCode } from "@ai-hero/sandcastle";
 import { podman } from "@ai-hero/sandcastle/sandboxes/podman";
+import { agentIdentity } from "./agent-workflows/shared/common.ts";
 
 const [prd, plan] = process.argv.slice(2);
 
@@ -9,7 +10,7 @@ if (!prd || !plan) {
 }
 
 await run({
-  agent: claudeCode("claude-opus-4-6"),
+  agent: claudeCode(agentIdentity().model),
   sandbox: podman(),
   promptFile: "./.sandcastle/prompt.md",
   maxIterations: 3,

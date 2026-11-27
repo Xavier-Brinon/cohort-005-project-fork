@@ -1,92 +1,41 @@
 name: Agent — Review A Pull Request
 
-# The second workflow in the software factory. It reviews what the first one
-# built.
+# Reviews what the implementer built, memory-less by design.
 #
 # WHAT TRIGGERS IT
-#   Someone puts the `agent:review` label on a pull request. The label does
-#   not start this file: agent-review-relay.yml sees it and dispatches this
-#   workflow on `main` with the pull request's number. You can also start it
-#   by hand from the Actions tab, with a number.
+#   `agent:review` label -> agent-review-relay.yml dispatches this workflow on
+#   `main` with the PR number (or dispatch manually from Actions). Why the hop:
+#   the `review` environment admits runs from `main` only; a `pull_request` run
+#   checks against `refs/pull/<n>/merge` and runs the PR branch's copy of its
+#   workflow. Dispatching on `main` runs `main`'s copy beside the key.
 #
-#   Why the hop: the reviewer's key sits in the `review` environment, which
-#   admits runs from `main` only. A `pull_request` run is checked against
-#   `refs/pull/<n>/merge`, and runs the PR branch's copy of its workflow, so
-#   it could never get in, and opening the environment to it would let any
-#   branch's workflow read the key. A dispatched run on `main` runs `main`'s
-#   copy of this file, and nothing else ever runs beside the key.
-#
-# MEMORY-LESS BY DESIGN
-#   Shares nothing with the implementer run — cold checkout plus three primary
-#   sources it fetches itself:
-#
-#     1. the diff              — what actually changed
-#     2. CODING_STANDARDS.md   — the rules, at the repo root
-#     3. the originating issue — read from the ticket the PR closes, not the PR body
-#
-#   Do not pass build context here: a shared context inherits the implementer's
-#   shortcuts. The agent is .sandcastle/agent-workflows/review/review.ts
-#   (prompt.md hands it the repo's code-review skill).
-#
-# IT FIXES WHAT IT CAN
-#   Fixes every finding it can as commits on the PR's branch and leaves the
-#   rest as inline comments. Pushes are never forced: if the branch moved
-#   during the run, fixes go to `<pr branch>-<run id>` as a draft PR and the
-#   original PR gets `agent:blocked` so a person picks which to keep.
-#
-# HOW IT ENDS: THE PR GOES READY
-#   Once a verdict is posted, the last step marks the PR ready for review (on
-#   fail as well as pass). Ready is not approved; a human still merges.
+# WHAT IT DOES
+#   Cold checkout plus three primary sources (three-dot diff, CODING_STANDARDS.md,
+#   and the issue closed by the PR). Agent: .sandcastle/agent-workflows/review/review.ts.
+#   Commits fixes it can make (never force-pushed; if the branch moved, fixes go
+#   to `<branch>-<run id>` as a draft PR and the original gets `agent:blocked`),
+#   adds Agent-Model/Agent-Role trailers, posts verdict + inline review with the
+#   factory:model marker, and marks the PR ready once a verdict lands.
 #
 # WHAT IT NEEDS
-#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token.
-#   The `review` environment, named by the job. It holds the
-#     xb-agent-reviewer app's client id (vars.APP_CLIENT_ID) and private key
-#     (an environment secret). The key goes to the minting step and nowhere
-#     else. Every step that calls GitHub uses the token minted from them; the
-#     agent's step does not. A token acts as xb-agent-reviewer[bot], lasts an
-#     hour at most, and is revoked when the job ends.
-#   The app has Contents, Pull requests and Issues: read and write, and no
-#     Workflows, so its push of the review's fixes cannot touch .github/. The
-#     job mints one token with all three, as its first step, and every step
-#     that calls GitHub uses it. The job's 30-minute timeout keeps the run
-#     inside the token's hour.
-#   Why one token, minted first: the agent, and the PR's install and seed
-#     scripts, run unsandboxed and as the same user as every later step. A
-#     process they leave running outlives its step and can read the
-#     environment of each step after it. A mint step after the agent would
-#     show that process the private key, which mints tokens until someone
-#     rotates it. And the PR's code was written by the builder's agent, so
-#     that would hand one role's key to another role's code. Minted before
-#     any of that code runs, the key is in no later step's environment, with
-#     one exception: the action's own post step, which revokes the token as
-#     the job ends, is started with the key among its inputs.
-#     Nor is the key gone from the machine. The runner keeps every secret the
-#     job names in its own memory until the job ends, and the job's user has
-#     passwordless sudo, so code that sets out to read that memory can. Only a
-#     job that never names the key is safe from that, which means splitting the
-#     agent from the job that pushes and posts.
-#   Keeping the token out of the agent's environment is tidiness, not a wall:
-#     a leftover process can read GH_TOKEN from a later step, and a later
-#     step that runs git in the checkout reads a .git/config the agent could
-#     write. That token dies within the hour. The real defence is who can reach the agent — same-repo
-#     PRs only, and a label only a collaborator can apply.
-#   It cannot reach the other roles' keys. Each app's key sits in an
-#     environment of its own, the job gets only the environment it names, and
-#     every environment admits runs from `main` alone.
-#   secrets.GITHUB_TOKEN — supplied by Actions, used only for the checkout.
-#   The `agent:review` label. A fresh clone of this repository does not have
-#     it, and no workflow can create the label that starts it. Create it once:
-#       gh label create "agent:review" --color 5319E7 \
-#         --description "Ask the review workflow to read this pull request"
-#
-# A CAUTION THAT COMES WITH IT
-#   This workflow will not review a fork PR. A dispatched run gets none of the
-#   protection `pull_request` gives a fork, so the first step refuses any PR
-#   whose head is in another repository, before the PR's code is checked out.
-#   The relay cannot dispatch for a fork either: there its token is
-#   read-only. That is the correct trade: reviewing a stranger's code with a
-#   writable token is how a factory gets robbed.
+#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
+#     model live in one place: .sandcastle/agent-workflows/shared/model.ts
+#     (model overridable via AGENT_MODEL). Resolved from `main` before the PR
+#     checkout; $OUTPUT_DIR/agent.json is cross-checked against it.
+#   The `review` environment: holds xb-agent-reviewer's vars.APP_CLIENT_ID and
+#     secrets.APP_PRIVATE_KEY. Minted once as the first step (Contents, Pull
+#     requests, Issues: write; no Workflows, so pushes cannot touch .github/),
+#     never passed to the agent step, and valid under the 30-minute timeout.
+#   Security note: the agent and the PR's install/seed scripts run unsandboxed
+#     as the same user. Minting first keeps the key out of later steps' env
+#     (except the action's post step, which revokes the token), though the runner
+#     holds job secrets in memory and the job user has passwordless sudo; only
+#     splitting the agent into a secret-free job closes that. A leftover process
+#     could still read GH_TOKEN from a later step or alter .git/config; the real
+#     defence is collaborator-only triggers and refusing fork PRs before checkout.
+#   Each role's key sits in its own `main`-only environment, unreachable here.
+#   secrets.GITHUB_TOKEN — checkout only.
+#   The `agent:review` label (create once if missing).
 
 on:
   workflow_dispatch:
@@ -98,15 +47,9 @@ on:
 
 run-name: Review PR #${{ inputs.pr }}
 
-# A ceiling on the GITHUB_TOKEN, which only checks the code out. Reading the
-# PR and the ticket, pushing the fixes, posting the verdict and the inline
-# comments, and marking the PR ready all go through the reviewer app's token.
 permissions:
-  contents: read # the checkout
+  contents: read
 
-# One review per PR, never cancelled: a cancelled review would lose the
-# commits it made. A fresh `agent:review` waits for the one running. Only
-# that label reaches this file: the relay drops every other one.
 concurrency:
   group: agent-review-${{ inputs.pr }}
   cancel-in-progress: false
@@ -124,8 +67,6 @@ jobs:
 
     steps:
       - name: Mint the reviewer token
-        # The job's one token, before the PR's code is on the machine. See
-        # WHAT IT NEEDS for why there is no second one after the agent.
         id: token
         uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
         with:
@@ -135,12 +76,22 @@ jobs:
           permission-issues: write
           permission-pull-requests: write
 
+      - name: Resolve the bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          bot_name="${APP_SLUG}[bot]"
+          bot_id="$(gh api "users/${APP_SLUG}%5Bbot%5D" --jq .id)"
+          {
+            echo "name=${bot_name}"
+            echo "email=${bot_id}+${bot_name}@users.noreply.github.com"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Find the pull request
         id: pr
-        # A dispatch carries only a number, so the branch and the commit to
-        # review come from GitHub. It refuses a fork's PR and a closed one
-        # before anything is checked out. The later steps guard on this one,
-        # so a refused PR gets no label and no comment.
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
@@ -156,9 +107,6 @@ jobs:
             echo "::error::#$PR_NUMBER is not open."
             exit 1
           fi
-          # Branch names cannot hold a newline, so each is one line here.
-          # FALLBACK_BRANCH is where the fixes go if the push to BRANCH is
-          # rejected. New every run.
           {
             echo "BRANCH=$(jq -r .headRefName /tmp/pr.json)"
             echo "FALLBACK_BRANCH=$(jq -r .headRefName /tmp/pr.json)-$GITHUB_RUN_ID"
@@ -167,12 +115,9 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Transition labels
-        # The trigger comes off, so putting it back on is how you retry.
-        # `agent:in-progress` goes on until the run ends, however it ends.
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
-          # A fresh clone of this repository does not have these labels yet.
           gh label create "agent:in-progress" --color FBCA04 \
             --description "An agent is working on this right now" || true
           gh label create "agent:blocked" --color B60205 \
@@ -181,11 +126,36 @@ jobs:
           gh pr edit "$PR_NUMBER" --remove-label "agent:blocked" || true
           gh pr edit "$PR_NUMBER" --add-label "agent:in-progress"
 
+      - name: Checkout main model config
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          path: .main-config
+          sparse-checkout: |
+            mise.toml
+            .sandcastle/agent-workflows/shared/model.ts
+          persist-credentials: false
+
+      - name: Set up node and aube with mise
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+        with:
+          working_directory: .main-config
+
+      - name: Resolve configured model
+        id: configured_model
+        run: |
+          set -euo pipefail
+          model_id="$(node .main-config/.sandcastle/agent-workflows/shared/model.ts | jq -r '"\(.provider)/\(.model)"')"
+          rm -rf .main-config
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid configured agent identity: $model_id"
+            exit 1
+          }
+          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout the pull request
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # The PR's head, so the review's fixes are commits on top of it.
-          # Full history: the review diffs it against the base.
           ref: ${{ env.HEAD_SHA }}
           fetch-depth: 0
           persist-credentials: false
@@ -195,15 +165,6 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           set -euo pipefail
-
-          # 1. The diff: the agent takes it against `origin/$BASE_REF`, the
-          #    base as it is now, three-dot, so anything pushed to the base
-          #    since the PR opened is not blamed on the PR.
-          # 2. The standards: CODING_STANDARDS.md, in the checkout.
-          # 3. The spec. Whatever issue this PR closes — found in the PR body,
-          #    which is the one thing here we do read from the PR. If there is
-          #    no `Closes #n`, the Spec axis reports "no spec available"
-          #    rather than inventing one.
           gh pr view "$PR_NUMBER" --json body --jq .body > /tmp/pr-body.md
           issue=$(grep -oiE '(closes|fixes|resolves) #[0-9]+' /tmp/pr-body.md \
             | head -n1 | grep -oE '[0-9]+' || true)
@@ -217,10 +178,6 @@ jobs:
           fi
           cat /tmp/review-spec.md
 
-      - name: Set up node and aube with mise
-        # The versions come from mise.toml, the same pins as on your machine.
-        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
-
       - name: Install dependencies
         run: aube ci
 
@@ -230,21 +187,19 @@ jobs:
           aube bin -g >> "$GITHUB_PATH"
 
       - name: Migrate and seed the database
-        # The pre-commit hook runs on every commit the agent makes, and the
-        # repo's checks need a database.
         run: |
           aube run db:migrate
           aube run db:seed
 
       - name: Open the branch
+        env:
+          BOT_NAME: ${{ steps.bot.outputs.name }}
+          BOT_EMAIL: ${{ steps.bot.outputs.email }}
         run: |
           set -euo pipefail
-          git config user.name "agent-factory[bot]"
-          git config user.email "agent-factory[bot]@users.noreply.github.com"
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
           git checkout -B "$BRANCH"
-          # The repo keeps its hooks in .githooks, and nothing installs them on a
-          # fresh checkout. Point git at them, and fail if the pre-commit hook is
-          # not there: the agent's commits would skip it without anyone noticing.
           git config core.hooksPath .githooks
           if [ ! -x .githooks/pre-commit ]; then
             echo "::error::The pre-commit hook is missing: .githooks/pre-commit does not exist or is not executable."
@@ -256,6 +211,55 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           OUTPUT_DIR: ${{ runner.temp }}
         run: node .sandcastle/agent-workflows/review/review.ts
+
+      - name: Add model trailers
+        env:
+          BOT_NAME: ${{ steps.bot.outputs.name }}
+          BOT_EMAIL: ${{ steps.bot.outputs.email }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
+        run: |
+          set -euo pipefail
+          [ -s "$RUNNER_TEMP/agent.json" ] || { echo "::error::Missing $RUNNER_TEMP/agent.json"; exit 1; }
+          reported="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          if [ "$reported" != "$AGENT_MODEL_ID" ]; then
+            echo "::error::agent.json reported ${reported}, expected ${AGENT_MODEL_ID}"
+            exit 1
+          fi
+
+          old_head="$(git rev-parse HEAD)"
+          if [ "$old_head" = "$HEAD_SHA" ]; then
+            echo "The review made no commits. No trailers to add."
+            exit 0
+          fi
+
+          declare -A mapped
+          mapped["$HEAD_SHA"]="$HEAD_SHA"
+          while IFS= read -r sha; do
+            tree="$(git show -s --format=%T "$sha")"
+            parent_args=()
+            for p in $(git show -s --format=%P "$sha"); do
+              parent_args+=(-p "${mapped[$p]:-$p}")
+            done
+            cleaned="$(git show -s --format=%B "$sha" | grep -viE '^[[:space:]]*Agent-(Model|Role)[[:space:]]*:' || true)"
+            msg="$(printf '%s\n' "$cleaned" | git interpret-trailers --trailer "Agent-Model: ${AGENT_MODEL_ID}" --trailer "Agent-Role: reviewer")"
+            new_sha="$(
+              GIT_AUTHOR_NAME="$BOT_NAME" \
+              GIT_AUTHOR_EMAIL="$BOT_EMAIL" \
+              GIT_AUTHOR_DATE="$(git show -s --format=%aI "$sha")" \
+              GIT_COMMITTER_NAME="$BOT_NAME" \
+              GIT_COMMITTER_EMAIL="$BOT_EMAIL" \
+              GIT_COMMITTER_DATE="$(git show -s --format=%cI "$sha")" \
+              git -c core.hooksPath=/dev/null commit-tree "$tree" "${parent_args[@]}" <<< "$msg"
+            )"
+            mapped["$sha"]="$new_sha"
+          done < <(git rev-list --reverse --topo-order "$HEAD_SHA..$old_head")
+          git -c core.hooksPath=/dev/null reset --soft "${mapped[$old_head]}"
+          if [ -s "$RUNNER_TEMP/review-comments.json" ]; then
+            jq --arg sha "$(git rev-parse HEAD)" '.commit_id = $sha' \
+              "$RUNNER_TEMP/review-comments.json" > /tmp/review-comments.tmp
+            mv /tmp/review-comments.tmp "$RUNNER_TEMP/review-comments.json"
+          fi
+          git log --format='%h %s | %(trailers:key=Agent-Model,valueonly=true) | %(trailers:key=Agent-Role,valueonly=true)' "$HEAD_SHA..HEAD"
 
       - name: Push the review's fixes
         id: push
@@ -272,21 +276,15 @@ jobs:
             exit 0
           fi
           git log --oneline "$HEAD_SHA..HEAD"
-          # The token exists for these commands. Hooks are off, so nothing
-          # the PR or the agent wrote runs while it does.
           auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
           push_to() {
             git -c core.hooksPath=/dev/null \
               -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" \
               push "https://github.com/${GH_REPO}.git" "HEAD:refs/heads/$1"
           }
-          # Not a force push: if someone pushed to the branch during the run,
-          # this is rejected.
           if push_to "$BRANCH"; then
             exit 0
           fi
-          # Rejected. Never force it, and never lose the fixes: push them to a
-          # branch of their own, which this run's id makes new.
           echo "::warning::The push to $BRANCH was rejected. Pushing the fixes to $FALLBACK_BRANCH instead."
           push_to "$FALLBACK_BRANCH"
           echo "fallback=true" >> "$GITHUB_OUTPUT"
@@ -296,6 +294,7 @@ jobs:
         if: steps.push.outputs.fallback == 'true'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
           {
@@ -304,6 +303,8 @@ jobs:
             echo "so they are not lost. Keep this PR or #${PR_NUMBER}, and close the other."
             echo ""
             echo "Built unattended by [this run](${RUN_URL})."
+            echo ""
+            echo "<!-- factory:model=${AGENT_MODEL_ID} role=reviewer run=${GITHUB_RUN_ID} -->"
           } > /tmp/review-fallback.md
           url="$(gh pr create \
             --draft \
@@ -330,11 +331,13 @@ jobs:
           EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
           FALLBACK: ${{ steps.push.outputs.fallback }}
           FALLBACK_URL: ${{ steps.fallback.outputs.url }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id || 'unknown/unknown' }}
         run: |
           set -euo pipefail
           [ -s /tmp/review-verdict.md ] || \
             echo "The review run produced no verdict. See the logs. Re-add \`agent:review\` to retry." \
               > /tmp/review-verdict.md
+          perl -0777 -i -pe 's/<!--\s*factory:model\b[\s\S]*?-->//gi' /tmp/review-verdict.md
           if [ "$FALLBACK" = "true" ]; then
             {
               echo ""
@@ -342,9 +345,6 @@ jobs:
               echo "The fixes are on \`$FALLBACK_BRANCH\`${FALLBACK_URL:+, opened as ${FALLBACK_URL}}. Labelled \`agent:blocked\`: keep one of the two PRs."
             } >> /tmp/review-verdict.md
           fi
-          # `gh --attach` rejects GitHub App installation tokens, even with
-          # Contents write. Swap each `![alt](/tmp/evidence/<file>)` for the
-          # file's name and link to the run's artifact.
           if grep -q '/tmp/evidence/' /tmp/review-verdict.md; then
             sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' /tmp/review-verdict.md
             printf '\n\nScreenshots: [review-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> /tmp/review-verdict.md
@@ -355,17 +355,16 @@ jobs:
             echo ""
             echo "Reviewed by the review workflow — [logs](${RUN_URL}). This run"
             echo "saw the diff, the standards and the ticket, and nothing else."
+            echo ""
+            echo "<!-- factory:model=${AGENT_MODEL_ID} role=reviewer run=${GITHUB_RUN_ID} -->"
           } >> /tmp/review-verdict.md
           gh pr comment "$PR_NUMBER" --body-file /tmp/review-verdict.md
 
       - name: Post the inline comments
-        # One review, event COMMENT, with a comment on each line the agent
-        # left a finding on. They go where the fixes went: the fallback PR if
-        # the push was rejected. review.ts already dropped every comment
-        # outside the diff, because GitHub rejects the whole review for one.
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           TARGET: ${{ steps.fallback.outputs.number || inputs.pr }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
           review="$RUNNER_TEMP/review-comments.json"
@@ -373,16 +372,19 @@ jobs:
             echo "No inline comments: the review fixed or passed everything."
             exit 0
           fi
+          node -e '
+            const fs = require("node:fs");
+            const data = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const strip = (text) => String(text ?? "").replace(/<!--\s*factory:model\b[\s\S]*?-->/gi, "");
+            const marker = `<!-- factory:model=${process.env.AGENT_MODEL_ID} role=reviewer run=${process.env.GITHUB_RUN_ID} -->`;
+            data.body = `${strip(data.body).trimEnd()}\n\n${marker}`;
+            data.comments = data.comments.map((comment) => ({ ...comment, body: strip(comment.body) }));
+            fs.writeFileSync("/tmp/review-comments-clean.json", JSON.stringify(data));
+          ' "$review"
           gh api --method POST "repos/$GH_REPO/pulls/$TARGET/reviews" \
-            --input "$review" --silent
+            --input /tmp/review-comments-clean.json --silent
 
       - name: Mark the pull request ready
-        # No `always()` here. If the agent broke, nobody has read the PR, so
-        # it stays a draft. And it goes ready only when a real verdict was
-        # posted: the fallback note above is not a review. The verdict's own
-        # `## Standards:` heading is how we tell. Pass or fail does not
-        # matter. This step runs nothing the agent or the PR wrote: it reads
-        # the verdict as text and calls `gh`.
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
@@ -394,8 +396,6 @@ jobs:
           fi
 
       - name: Mark blocked on failure or a rejected push
-        # A rejected push is blocked too: the fixes are on another branch, and
-        # a person has to choose between the two PRs.
         if: (failure() || steps.push.outputs.fallback == 'true') && steps.pr.outcome == 'success'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}

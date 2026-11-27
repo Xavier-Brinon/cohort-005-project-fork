@@ -1,6 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as sandcastle from "@ai-hero/sandcastle";
+import { agentIdentity } from "./model.ts";
+
+export { agentIdentity };
 
 export const outputDir = (): string => process.env.OUTPUT_DIR ?? "/tmp";
 
@@ -21,6 +24,12 @@ export const writeJson = (filename: string, value: unknown): void => {
   );
 };
 
+export const writeAgentJson = () => {
+  const identity = agentIdentity();
+  writeJson("agent.json", identity);
+  return identity;
+};
+
 // The one agent every factory workflow runs. It authenticates with a Claude
 // subscription. To bill the API instead, pass ANTHROPIC_API_KEY here and in
 // the workflow's env in place of CLAUDE_CODE_OAUTH_TOKEN.
@@ -29,8 +38,12 @@ export const writeJson = (filename: string, value: unknown): void => {
 // use any tool. Claude Code also accepts `permissionMode: "auto"` here for
 // AI-mediated approvals instead (Claude only; other agents don't offer it).
 export const claudeAgent = () =>
-  sandcastle.claudeCode("claude-opus-5-5", {
+  sandcastle.claudeCode(agentIdentity().model, {
     env: {
       CLAUDE_CODE_OAUTH_TOKEN: required("CLAUDE_CODE_OAUTH_TOKEN"),
     },
   });
+
+if (import.meta.main) {
+  console.log(JSON.stringify(agentIdentity()));
+}
