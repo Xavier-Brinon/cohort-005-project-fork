@@ -15,8 +15,8 @@ name: Agent — Implement A Ticket
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
 #     model live in one place: .sandcastle/agent-workflows/shared/common.ts
-#     (overridable via AGENT_PROVIDER and AGENT_MODEL env vars). Every script
-#     writes them to $OUTPUT_DIR/agent.json for the trailer and marker steps.
+#     (overridable via AGENT_PROVIDER and AGENT_MODEL). Resolved before the
+#     agent runs; $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `implement` environment: holds xb-agent-builder's vars.APP_CLIENT_ID
 #     and secrets.APP_PRIVATE_KEY. Minted once as the first step (Contents,
 #     Pull requests, Issues: write; no Workflows, so pushes cannot touch
@@ -130,6 +130,17 @@ jobs:
       - name: Install dependencies
         run: aube ci
 
+      - name: Resolve configured model
+        id: configured_model
+        run: |
+          set -euo pipefail
+          model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"')"
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid configured agent identity: $model_id"
+            exit 1
+          }
+          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
       - name: Install Claude Code
         run: |
           aube add -g @anthropic-ai/claude-code
@@ -227,19 +238,19 @@ jobs:
           git log --oneline "$BASE..HEAD"
 
       - name: Add model trailers
-        id: trailers
         env:
           BASE: ${{ steps.branch.outputs.base }}
           BOT_NAME: ${{ steps.bot.outputs.name }}
           BOT_EMAIL: ${{ steps.bot.outputs.email }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
-          model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
-          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
-            echo "::error::Invalid agent identity in agent.json: $model_id"
+          [ -s "$RUNNER_TEMP/agent.json" ] || { echo "::error::Missing $RUNNER_TEMP/agent.json"; exit 1; }
+          reported="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          if [ "$reported" != "$AGENT_MODEL_ID" ]; then
+            echo "::error::agent.json reported ${reported}, expected ${AGENT_MODEL_ID}"
             exit 1
-          }
-          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+          fi
 
           old_head="$(git rev-parse HEAD)"
           declare -A mapped
@@ -251,7 +262,7 @@ jobs:
               parent_args+=(-p "${mapped[$p]:-$p}")
             done
             cleaned="$(git show -s --format=%B "$sha" | grep -viE '^[[:space:]]*Agent-(Model|Role)[[:space:]]*:' || true)"
-            msg="$(printf '%s\n' "$cleaned" | git interpret-trailers --trailer "Agent-Model: ${model_id}" --trailer "Agent-Role: builder")"
+            msg="$(printf '%s\n' "$cleaned" | git interpret-trailers --trailer "Agent-Model: ${AGENT_MODEL_ID}" --trailer "Agent-Role: builder")"
             new_sha="$(
               GIT_AUTHOR_NAME="$BOT_NAME" \
               GIT_AUTHOR_EMAIL="$BOT_EMAIL" \
@@ -295,7 +306,7 @@ jobs:
           # to `gh`.
           GH_TOKEN: ${{ steps.token.outputs.token }}
           EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
-          AGENT_MODEL_ID: ${{ steps.trailers.outputs.model_id }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
           title="$(gh issue view "$ISSUE_NUMBER" --json title --jq .title)"
@@ -341,23 +352,15 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           JOB_STATUS: ${{ job.status }}
           PR_URL: ${{ steps.pr.outputs.url }}
-          AGENT_MODEL_ID: ${{ steps.trailers.outputs.model_id }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id || 'unknown/unknown' }}
         run: |
-          model_id="${AGENT_MODEL_ID:-}"
-          if [ -z "$model_id" ] && [ -s "$RUNNER_TEMP/agent.json" ]; then
-            model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json" 2>/dev/null || true)"
-          fi
-          if [ -z "$model_id" ] && command -v node >/dev/null 2>&1 && [ -f .sandcastle/agent-workflows/shared/common.ts ]; then
-            model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"' 2>/dev/null || true)"
-          fi
-          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || model_id="unknown/unknown"
           where=""
           [ -n "$PR_URL" ] && where=" Pull request: ${PR_URL}, from \`${BRANCH}\`."
           retry=""
           [ "$JOB_STATUS" = "failure" ] && retry=" Re-add \`agent:implement\` to retry."
           # Tagged, so the next run on this ticket leaves it out of the ticket.
           gh issue comment "$ISSUE_NUMBER" --body \
-            "Implementer run **${JOB_STATUS}** — [logs](${RUN_URL}).${where}${retry} <!-- factory:status --> <!-- factory:model=${model_id} role=builder run=${GITHUB_RUN_ID} -->"
+            "Implementer run **${JOB_STATUS}** — [logs](${RUN_URL}).${where}${retry} <!-- factory:status --> <!-- factory:model=${AGENT_MODEL_ID} role=builder run=${GITHUB_RUN_ID} -->"
 
       - name: Always remove in-progress
         if: always()

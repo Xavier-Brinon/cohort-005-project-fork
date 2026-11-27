@@ -5,8 +5,8 @@ name: Agent — Implement A Spec (Decompose)
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
 #     model live in .sandcastle/agent-workflows/shared/common.ts (overridable
-#     via AGENT_PROVIDER and AGENT_MODEL env vars) and are written to
-#     $OUTPUT_DIR/agent.json.
+#     via AGENT_PROVIDER and AGENT_MODEL). Resolved before the agent runs;
+#     $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `decompose` environment (xb-agent-decomposer, Issues: read/write,
 #     `main`-only). Inherited via `secrets: inherit` from the caller.
 
@@ -59,6 +59,17 @@ jobs:
       - name: Install dependencies
         run: aube ci
 
+      - name: Resolve configured model
+        id: configured_model
+        run: |
+          set -euo pipefail
+          model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"')"
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid configured agent identity: $model_id"
+            exit 1
+          }
+          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
       - name: Install Claude Code
         run: |
           aube add -g @anthropic-ai/claude-code
@@ -83,14 +94,16 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
-          model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
-          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
-            echo "::error::Invalid agent identity in agent.json: $model_id"
+          [ -s "$RUNNER_TEMP/agent.json" ] || { echo "::error::Missing $RUNNER_TEMP/agent.json"; exit 1; }
+          reported="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          if [ "$reported" != "$AGENT_MODEL_ID" ]; then
+            echo "::error::agent.json reported ${reported}, expected ${AGENT_MODEL_ID}"
             exit 1
-          }
-          marker="<!-- factory:model=${model_id} role=decomposer run=${GITHUB_RUN_ID} -->"
+          fi
+          marker="<!-- factory:model=${AGENT_MODEL_ID} role=decomposer run=${GITHUB_RUN_ID} -->"
 
           cp "$RUNNER_TEMP/queue.json" /tmp/queue.json
           jq '.' /tmp/queue.json

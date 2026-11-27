@@ -5,8 +5,8 @@ name: Agent — Implement A Spec (Implement)
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
 #     model live in .sandcastle/agent-workflows/shared/common.ts (overridable
-#     via AGENT_PROVIDER and AGENT_MODEL env vars) and are written to
-#     $OUTPUT_DIR/agent.json.
+#     via AGENT_PROVIDER and AGENT_MODEL). Resolved before the agent runs;
+#     $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `implement` environment (xb-agent-builder, Contents, Pull requests,
 #     Issues, Actions: read/write, `main`-only). Inherited via `secrets: inherit`.
 
@@ -70,6 +70,9 @@ jobs:
       - name: Set up node and aube with mise
         uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
 
+      - name: Install dependencies
+        run: aube ci
+
       - name: Resolve configured model
         id: configured_model
         run: |
@@ -80,9 +83,6 @@ jobs:
             exit 1
           }
           echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
-
-      - name: Install dependencies
-        run: aube ci
 
       - name: Install Claude Code
         run: |
@@ -178,19 +178,19 @@ jobs:
           git log --oneline "$BASE..HEAD"
 
       - name: Add model trailers
-        id: trailers
         env:
           BASE: ${{ steps.branch.outputs.base }}
           BOT_NAME: ${{ steps.bot.outputs.name }}
           BOT_EMAIL: ${{ steps.bot.outputs.email }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
-          model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
-          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
-            echo "::error::Invalid agent identity in agent.json: $model_id"
+          [ -s "$RUNNER_TEMP/agent.json" ] || { echo "::error::Missing $RUNNER_TEMP/agent.json"; exit 1; }
+          reported="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          if [ "$reported" != "$AGENT_MODEL_ID" ]; then
+            echo "::error::agent.json reported ${reported}, expected ${AGENT_MODEL_ID}"
             exit 1
-          }
-          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+          fi
 
           old_head="$(git rev-parse HEAD)"
           declare -A mapped
@@ -202,7 +202,7 @@ jobs:
               parent_args+=(-p "${mapped[$p]:-$p}")
             done
             cleaned="$(git show -s --format=%B "$sha" | grep -viE '^[[:space:]]*Agent-(Model|Role)[[:space:]]*:' || true)"
-            msg="$(printf '%s\n' "$cleaned" | git interpret-trailers --trailer "Agent-Model: ${model_id}" --trailer "Agent-Role: builder")"
+            msg="$(printf '%s\n' "$cleaned" | git interpret-trailers --trailer "Agent-Model: ${AGENT_MODEL_ID}" --trailer "Agent-Role: builder")"
             new_sha="$(
               GIT_AUTHOR_NAME="$BOT_NAME" \
               GIT_AUTHOR_EMAIL="$BOT_EMAIL" \
@@ -240,7 +240,7 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
-          AGENT_MODEL_ID: ${{ steps.trailers.outputs.model_id }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id }}
         run: |
           set -euo pipefail
           title=$(gh issue view "$TICKET" --json title --jq .title)
@@ -288,15 +288,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           PR_URL: ${{ steps.ship.outputs.url }}
-          AGENT_MODEL_ID: ${{ steps.trailers.outputs.model_id || steps.configured_model.outputs.model_id }}
+          AGENT_MODEL_ID: ${{ steps.configured_model.outputs.model_id || 'unknown/unknown' }}
         run: |
           set -euo pipefail
-          model_id="${AGENT_MODEL_ID:-}"
-          if [ -z "$model_id" ] && [ -s "$RUNNER_TEMP/agent.json" ]; then
-            model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json" 2>/dev/null || true)"
-          fi
-          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || model_id="unknown/unknown"
-          marker="<!-- factory:model=${model_id} role=builder run=${GITHUB_RUN_ID} -->"
+          marker="<!-- factory:model=${AGENT_MODEL_ID} role=builder run=${GITHUB_RUN_ID} -->"
 
           gh issue edit "$TICKET" --remove-label "agent:in-progress" || true
 
