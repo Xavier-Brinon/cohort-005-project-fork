@@ -18,7 +18,7 @@ name: Agent — Implement A Spec
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. Both agents live
 #     in .sandcastle/agent-workflows/implement-spec/. The provider and model
 #     live in one place: .sandcastle/agent-workflows/shared/common.ts
-#     (overridable via AGENT_PROVIDER and AGENT_MODEL). Resolved before each
+#     (model overridable via AGENT_MODEL). Resolved before each
 #     agent runs; $OUTPUT_DIR/agent.json is cross-checked against it.
 #   Two `main`-only environments, each holding vars.APP_CLIENT_ID and
 #     secrets.APP_PRIVATE_KEY:

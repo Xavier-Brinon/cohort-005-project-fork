@@ -57,7 +57,7 @@ name: Agent — Explore The Tickets
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
 #     model live in one place: .sandcastle/agent-workflows/shared/common.ts
-#     (overridable via AGENT_PROVIDER and AGENT_MODEL). Resolved before the
+#     (model overridable via AGENT_MODEL). Resolved before the
 #     agent runs; $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `explore` environment, named by every job here. It holds the
 #     xb-agent-explorer app's client id (vars.APP_CLIENT_ID) and private key

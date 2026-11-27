@@ -20,7 +20,7 @@ name: Agent — Review A Pull Request
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
 #     model live in one place: .sandcastle/agent-workflows/shared/common.ts
-#     (overridable via AGENT_PROVIDER and AGENT_MODEL). Resolved before the
+#     (model overridable via AGENT_MODEL). Resolved before the
 #     agent runs; $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `review` environment: holds xb-agent-reviewer's vars.APP_CLIENT_ID and
 #     secrets.APP_PRIVATE_KEY. Minted once as the first step (Contents, Pull
@@ -240,7 +240,7 @@ jobs:
             )"
             mapped["$sha"]="$new_sha"
           done < <(git rev-list --reverse --topo-order "$HEAD_SHA..$old_head")
-          git -c core.hooksPath=/dev/null reset --hard "${mapped[$old_head]}"
+          git -c core.hooksPath=/dev/null reset --soft "${mapped[$old_head]}"
           if [ -s "$RUNNER_TEMP/review-comments.json" ]; then
             jq --arg sha "$(git rev-parse HEAD)" '.commit_id = $sha' \
               "$RUNNER_TEMP/review-comments.json" > /tmp/review-comments.tmp

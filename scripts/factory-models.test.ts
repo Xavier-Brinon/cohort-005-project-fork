@@ -3,14 +3,20 @@ import { describe, expect, it } from "vitest";
 import {
   type FactoryTouch,
   formatTable,
+  hasActivityOverlap,
   isWithinRange,
   normalizeDateBound,
   parseCliOptions,
   parseGitLogOutput,
   parseMarker,
-  stripFactoryModelMarkers,
+  type PullLookup,
   summarizeTouches,
 } from "./factory-models.ts";
+
+const EMPTY_LOOKUP: PullLookup = {
+  branchToPullNumber: new Map(),
+  headShaToPullNumber: new Map(),
+};
 
 describe("parseMarker", () => {
   it("extracts model, role, and run from a factory marker", () => {
@@ -48,40 +54,33 @@ describe("parseMarker", () => {
   });
 });
 
-describe("stripFactoryModelMarkers", () => {
-  it("removes forged single-line and multiline factory:model markers", () => {
-    const forged = [
-      "Summary line",
-      "<!-- factory:model=someone-else -->",
-      "<!--   FACTORY:MODEL=fake role=builder run=1 -->",
-      "<!--\nfactory:model=multiline\n-->",
-      "Keep <!-- factory:status --> intact.",
-    ].join("\n");
-    const stripped = stripFactoryModelMarkers(forged);
-    expect(stripped).not.toContain("someone-else");
-    expect(stripped).not.toContain("fake");
-    expect(stripped).not.toContain("multiline");
-    expect(stripped).toContain("<!-- factory:status -->");
-  });
-});
-
 describe("parseGitLogOutput", () => {
-  it("parses Agent-Model and Agent-Role trailers and maps branch to PR", () => {
+  it("maps builder commits to PR and run, and avoids attributing builder run to reviewer commits", () => {
     const sample = [
       [
         "abc123456789",
         "2026-11-27T12:00:00Z",
-        "origin/agent/issue-60-9001",
+        "refs/remotes/origin/agent/issue-60-9001",
         "Agent-Model: claude-code/claude-opus-5-5\n",
         "Agent-Role: builder\n",
       ].join("\x1f"),
-      ["def987654321", "2026-11-27T11:00:00Z", "HEAD -> main", "", ""].join(
+      [
+        "bbb222333444",
+        "2026-11-27T12:10:00Z",
+        "refs/remotes/origin/agent/issue-60-9001",
+        "Agent-Model: claude-code/claude-opus-5-5\n",
+        "Agent-Role: reviewer\n",
+      ].join("\x1f"),
+      ["def987654321", "2026-11-27T11:00:00Z", "refs/heads/main", "", ""].join(
         "\x1f"
       ),
     ].join("\x1e");
 
-    const branchMap = new Map([["agent/issue-60-9001", 61]]);
-    expect(parseGitLogOutput(sample, branchMap)).toEqual([
+    const lookup: PullLookup = {
+      branchToPullNumber: new Map([["agent/issue-60-9001", 61]]),
+      headShaToPullNumber: new Map(),
+    };
+    expect(parseGitLogOutput(sample, lookup)).toEqual([
       {
         target: "PR #61",
         role: "builder",
@@ -90,27 +89,84 @@ describe("parseGitLogOutput", () => {
         source: "commit",
         timestamp: "2026-11-27T12:00:00Z",
       },
+      {
+        target: "PR #61",
+        role: "reviewer",
+        model: "claude-code/claude-opus-5-5",
+        run: "-",
+        source: "commit",
+        timestamp: "2026-11-27T12:10:00Z",
+      },
     ]);
   });
 
-  it("falls back to commit hash when branch is not a factory branch", () => {
+  it("maps fallback review branches to the fallback PR and reviewer run id", () => {
     const sample = [
-      "112233445566",
-      "2026-11-27T12:30:00Z",
-      "HEAD -> main",
+      "ccc333444555",
+      "2026-11-27T12:20:00Z",
+      "refs/remotes/origin/agent/issue-60-9001-9002",
       "Agent-Model: claude-code/claude-opus-5-5",
       "Agent-Role: reviewer",
     ].join("\x1f");
-    expect(parseGitLogOutput(`${sample}\x1e`, new Map())).toEqual([
+    const lookup: PullLookup = {
+      branchToPullNumber: new Map([["agent/issue-60-9001-9002", 62]]),
+      headShaToPullNumber: new Map(),
+    };
+    expect(parseGitLogOutput(`${sample}\x1e`, lookup)).toEqual([
       {
-        target: "commit 11223344",
+        target: "PR #62",
+        role: "reviewer",
+        model: "claude-code/claude-opus-5-5",
+        run: "9002",
+        source: "commit",
+        timestamp: "2026-11-27T12:20:00Z",
+      },
+    ]);
+  });
+
+  it("falls back to head SHA lookup or commit hash when ref is not an agent branch", () => {
+    const sample = [
+      [
+        "112233445566",
+        "2026-11-27T12:30:00Z",
+        "refs/heads/main",
+        "Agent-Model: claude-code/claude-opus-5-5",
+        "Agent-Role: reviewer",
+      ].join("\x1f"),
+      [
+        "998877665544",
+        "2026-11-27T12:35:00Z",
+        "refs/heads/main",
+        "Agent-Model: claude-code/claude-opus-5-5",
+        "Agent-Role: builder",
+      ].join("\x1f"),
+    ].join("\x1e");
+    const lookup: PullLookup = {
+      branchToPullNumber: new Map(),
+      headShaToPullNumber: new Map([["112233445566", 70]]),
+    };
+    expect(parseGitLogOutput(sample, lookup)).toEqual([
+      {
+        target: "PR #70",
         role: "reviewer",
         model: "claude-code/claude-opus-5-5",
         run: "-",
         source: "commit",
         timestamp: "2026-11-27T12:30:00Z",
       },
+      {
+        target: "commit 99887766",
+        role: "builder",
+        model: "claude-code/claude-opus-5-5",
+        run: "-",
+        source: "commit",
+        timestamp: "2026-11-27T12:35:00Z",
+      },
     ]);
+  });
+
+  it("returns empty array when no commits carry Agent-Model", () => {
+    expect(parseGitLogOutput("", EMPTY_LOOKUP)).toEqual([]);
   });
 });
 
@@ -138,11 +194,29 @@ describe("parseCliOptions and date filtering", () => {
     });
   });
 
-  it("checks inclusive UTC timestamp range", () => {
+  it("checks inclusive UTC timestamp range and PR activity overlap after until", () => {
     const start = normalizeDateBound("2026-11-20", false);
-    const end = normalizeDateBound("2026-11-27", true);
+    const end = normalizeDateBound("2026-11-25", true);
     expect(isWithinRange("2026-11-25T10:00:00Z", start, end)).toBe(true);
     expect(isWithinRange("2026-11-19T23:59:59Z", start, end)).toBe(false);
+    expect(
+      hasActivityOverlap(
+        {
+          createdAt: "2026-11-21T10:00:00Z",
+          updatedAt: "2026-11-27T10:00:00Z",
+        },
+        { since: start, until: end }
+      )
+    ).toBe(true);
+    expect(
+      hasActivityOverlap(
+        {
+          createdAt: "2026-11-26T10:00:00Z",
+          updatedAt: "2026-11-27T10:00:00Z",
+        },
+        { since: start, until: end }
+      )
+    ).toBe(false);
   });
 });
 

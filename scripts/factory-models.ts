@@ -7,11 +7,15 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const REVIEW_CONCURRENCY = 6;
 const MARKER_PATTERN =
   /<!--\s*factory:model=([A-Za-z0-9._-]+\/[A-Za-z0-9._-]+)\s+role=([A-Za-z0-9_-]+)\s+run=([0-9]+)\s*-->/gi;
-const AGENT_BRANCH_PATTERN = /\bagent\/(?:issue|spec-\d+-ticket)-(\d+)-(\d+)\b/;
+const AGENT_BRANCH_PATTERN =
+  /\b(agent\/(?:issue|spec-\d+-ticket)-(\d+)-(\d+)(?:-(\d+))?)\b/;
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const ISSUE_NUMBER_PATTERN = /\/(?:issues|pull)\/(\d+)/;
+const TABLE_HEADERS = ["TARGET", "ROLE", "MODEL", "RUN", "SOURCES", "DATE"];
 
-export interface MarkerMatch {
+type TouchSource = "commit" | "pr-body" | "issue-body" | "comment" | "review";
+
+interface MarkerMatch {
   model: string;
   role: string;
   run: string;
@@ -22,39 +26,43 @@ export interface FactoryTouch {
   role: string;
   model: string;
   run: string;
-  source: "commit" | "pr-body" | "issue-body" | "comment" | "review";
+  source: TouchSource;
   timestamp: string;
 }
 
-export interface SummaryRow {
+interface SummaryRow {
   target: string;
   role: string;
   model: string;
   run: string;
-  sources: string[];
+  sources: TouchSource[];
   latestAt: string;
 }
 
-export interface CliOptions {
+interface CliOptions {
   since: string;
   until: string;
   repository?: string;
   isJson: boolean;
 }
 
-interface GitHubPull {
+export interface PullLookup {
+  branchToPullNumber: ReadonlyMap<string, number>;
+  headShaToPullNumber: ReadonlyMap<string, number>;
+}
+
+interface GitHubItem {
   number: number;
   body: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface GitHubPull extends GitHubItem {
   head: { ref: string; sha: string };
 }
 
-interface GitHubIssue {
-  number: number;
-  body: string | null;
-  created_at: string;
-  updated_at: string;
+interface GitHubIssue extends GitHubItem {
   pull_request?: unknown;
 }
 
@@ -81,12 +89,12 @@ export function parseCliOptions(
   argumentsList: string[],
   now: Date
 ): CliOptions {
-  const defaultSince = new Date(
+  const sinceDate = new Date(
     now.getTime() - DEFAULT_LOOKBACK_DAYS * MILLISECONDS_PER_DAY
   )
     .toISOString()
     .slice(0, 10);
-  let since = normalizeDateBound(defaultSince, false);
+  let since = normalizeDateBound(sinceDate, false);
   let until = now.toISOString();
   let repository: string | undefined;
   let isJson = false;
@@ -107,7 +115,6 @@ export function parseCliOptions(
       isJson = true;
     }
   }
-
   return { since, until, repository, isJson };
 }
 
@@ -118,8 +125,7 @@ export function parseMarker(
     return undefined;
   }
   let latest: MarkerMatch | undefined;
-  for (const match of body.matchAll(MARKER_PATTERN)) {
-    const [, model, role, run] = match;
+  for (const [, model, role, run] of body.matchAll(MARKER_PATTERN)) {
     if (model && role && run) {
       latest = { model, role, run };
     }
@@ -127,22 +133,33 @@ export function parseMarker(
   return latest;
 }
 
-export function stripFactoryModelMarkers(text: string): string {
-  return text.replace(/<!--\s*factory:model\b[\s\S]*?-->/gi, "");
-}
-
 export function isWithinRange(
   timestamp: string,
   since: string,
   until: string
 ): boolean {
-  const value = Date.parse(timestamp);
-  const start = Date.parse(since);
-  const end = Date.parse(until);
-  if (Number.isNaN(value) || Number.isNaN(start) || Number.isNaN(end)) {
+  const [value, start, end] = [timestamp, since, until].map(Date.parse);
+  if ([value, start, end].some(Number.isNaN)) {
     return false;
   }
-  return value >= start && value <= end;
+  return (value ?? 0) >= (start ?? 0) && (value ?? 0) <= (end ?? 0);
+}
+
+export function hasActivityOverlap(
+  window: { createdAt: string; updatedAt: string },
+  range: { since: string; until: string }
+): boolean {
+  const values = [
+    window.createdAt,
+    window.updatedAt,
+    range.since,
+    range.until,
+  ].map(Date.parse);
+  if (values.some(Number.isNaN)) {
+    return false;
+  }
+  const [created = 0, updated = 0, start = 0, end = 0] = values;
+  return updated >= start && created <= end;
 }
 
 function parseTrailerValue(rawBlock: string, key: string): string {
@@ -159,58 +176,65 @@ function parseTrailerValue(rawBlock: string, key: string): string {
 }
 
 function resolveCommitTarget(
-  sha: string,
-  decorations: string,
-  branchToPullNumber: ReadonlyMap<string, number>
+  commit: { sha: string; refName: string; role: string },
+  lookup: PullLookup
 ): { target: string; run: string } {
-  const branchMatch = AGENT_BRANCH_PATTERN.exec(decorations);
-  if (!branchMatch) {
-    return { target: `commit ${sha.slice(0, 8)}`, run: "-" };
+  const branchMatch = AGENT_BRANCH_PATTERN.exec(commit.refName);
+  if (branchMatch) {
+    const [, branch = "", issueNumber = "", builderRun = "-", fallbackRun] =
+      branchMatch;
+    const pullNumber =
+      lookup.branchToPullNumber.get(branch) ??
+      lookup.headShaToPullNumber.get(commit.sha);
+    const run = fallbackRun
+      ? commit.role === "reviewer"
+        ? fallbackRun
+        : "-"
+      : commit.role === "builder"
+        ? builderRun
+        : "-";
+    return {
+      target:
+        pullNumber !== undefined
+          ? `PR #${pullNumber}`
+          : `Issue #${issueNumber}`,
+      run,
+    };
   }
-  const run = branchMatch[2] ?? "-";
-  const pullNumber = branchToPullNumber.get(branchMatch[0]);
+  const shaPull = lookup.headShaToPullNumber.get(commit.sha);
   return {
     target:
-      pullNumber !== undefined
-        ? `PR #${pullNumber}`
-        : `Issue #${branchMatch[1]}`,
-    run,
+      shaPull !== undefined
+        ? `PR #${shaPull}`
+        : `commit ${commit.sha.slice(0, 8)}`,
+    run: "-",
   };
 }
 
 export function parseGitLogOutput(
   output: string,
-  branchToPullNumber: ReadonlyMap<string, number>
+  lookup: PullLookup
 ): FactoryTouch[] {
-  const touches: FactoryTouch[] = [];
-  for (const record of output.split("\x1e")) {
+  return output.split("\x1e").flatMap((record) => {
     const trimmed = record.trim();
     if (!trimmed) {
-      continue;
+      return [];
     }
     const [
       sha = "",
       timestamp = "",
-      decorations = "",
+      refName = "",
       modelBlock = "",
       roleBlock = "",
     ] = trimmed.split("\x1f");
     const model = parseTrailerValue(modelBlock, "Agent-Model");
     if (!model) {
-      continue;
+      return [];
     }
     const role = parseTrailerValue(roleBlock, "Agent-Role") || "unknown";
-    const resolved = resolveCommitTarget(sha, decorations, branchToPullNumber);
-    touches.push({
-      target: resolved.target,
-      role,
-      model,
-      run: resolved.run,
-      source: "commit",
-      timestamp,
-    });
-  }
-  return touches;
+    const resolved = resolveCommitTarget({ sha, refName, role }, lookup);
+    return [{ ...resolved, role, model, source: "commit" as const, timestamp }];
+  });
 }
 
 export function summarizeTouches(touches: FactoryTouch[]): SummaryRow[] {
@@ -237,21 +261,19 @@ export function summarizeTouches(touches: FactoryTouch[]): SummaryRow[] {
       existing.latestAt = touch.timestamp;
     }
   }
-  return [...grouped.values()].sort((left, right) => {
-    if (left.latestAt !== right.latestAt) {
-      return right.latestAt.localeCompare(left.latestAt);
-    }
-    return left.target.localeCompare(right.target);
-  });
+  return [...grouped.values()].sort((left, right) =>
+    left.latestAt !== right.latestAt
+      ? right.latestAt.localeCompare(left.latestAt)
+      : left.target.localeCompare(right.target)
+  );
 }
 
 export function formatTable(rows: SummaryRow[]): string {
   if (rows.length === 0) {
     return "No factory runs found in range.";
   }
-  const headers = ["TARGET", "ROLE", "MODEL", "RUN", "SOURCES", "DATE"];
   const matrix = [
-    headers,
+    TABLE_HEADERS,
     ...rows.map((row) => [
       row.target,
       row.role,
@@ -261,7 +283,7 @@ export function formatTable(rows: SummaryRow[]): string {
       row.latestAt.slice(0, 19).replace("T", " "),
     ]),
   ];
-  const widths = headers.map((_, columnIndex) =>
+  const widths = TABLE_HEADERS.map((_, columnIndex) =>
     Math.max(...matrix.map((cells) => (cells[columnIndex] ?? "").length))
   );
   return matrix
@@ -311,36 +333,28 @@ function makeMarkerTouch(
     target: string;
     body: string | null;
     timestamp: string;
-    source: FactoryTouch["source"];
+    source: TouchSource;
   },
   options: CliOptions
-): FactoryTouch | undefined {
+): FactoryTouch[] {
   const marker = parseMarker(entry.body);
   if (
     !marker ||
     !isWithinRange(entry.timestamp, options.since, options.until)
   ) {
-    return undefined;
+    return [];
   }
-  return {
-    target: entry.target,
-    role: marker.role,
-    model: marker.model,
-    run: marker.run,
-    source: entry.source,
-    timestamp: entry.timestamp,
-  };
+  const { target, source, timestamp } = entry;
+  return [{ target, ...marker, source, timestamp }];
 }
 
-function collectPullTouches(
-  pulls: GitHubPull[],
-  options: CliOptions
-): { touches: FactoryTouch[]; branchToPullNumber: Map<string, number> } {
-  const touches: FactoryTouch[] = [];
+function collectPullTouches(pulls: GitHubPull[], options: CliOptions) {
   const branchToPullNumber = new Map<string, number>();
-  for (const pull of pulls) {
+  const headShaToPullNumber = new Map<string, number>();
+  const touches = pulls.flatMap((pull) => {
     branchToPullNumber.set(pull.head.ref, pull.number);
-    const touch = makeMarkerTouch(
+    headShaToPullNumber.set(pull.head.sha, pull.number);
+    return makeMarkerTouch(
       {
         target: `PR #${pull.number}`,
         body: pull.body,
@@ -349,21 +363,15 @@ function collectPullTouches(
       },
       options
     );
-    if (touch) {
-      touches.push(touch);
-    }
-  }
-  return { touches, branchToPullNumber };
+  });
+  return { touches, lookup: { branchToPullNumber, headShaToPullNumber } };
 }
 
-function collectIssueTouches(
-  issues: GitHubIssue[],
-  options: CliOptions
-): FactoryTouch[] {
+function collectIssueTouches(issues: GitHubIssue[], options: CliOptions) {
   return issues
     .filter((issue) => !issue.pull_request)
-    .flatMap((issue) => {
-      const touch = makeMarkerTouch(
+    .flatMap((issue) =>
+      makeMarkerTouch(
         {
           target: `Issue #${issue.number}`,
           body: issue.body,
@@ -371,53 +379,23 @@ function collectIssueTouches(
           source: "issue-body",
         },
         options
-      );
-      return touch ? [touch] : [];
-    });
+      )
+    );
 }
 
-function collectCommentTouches(
-  comments: GitHubComment[],
-  options: CliOptions
-): FactoryTouch[] {
+function collectCommentTouches(comments: GitHubComment[], options: CliOptions) {
   return comments.flatMap((comment) => {
     const label = comment.html_url.includes("/pull/") ? "PR" : "Issue";
-    const numberMatch = ISSUE_NUMBER_PATTERN.exec(comment.html_url);
-    const target = numberMatch
-      ? `${label} #${numberMatch[1]}`
-      : comment.issue_url;
-    const touch = makeMarkerTouch(
+    const match = ISSUE_NUMBER_PATTERN.exec(comment.html_url);
+    return makeMarkerTouch(
       {
-        target,
+        target: match ? `${label} #${match[1]}` : comment.issue_url,
         body: comment.body,
         timestamp: comment.created_at,
         source: "comment",
       },
       options
     );
-    return touch ? [touch] : [];
-  });
-}
-
-async function fetchSinglePullReviews(
-  repository: string,
-  pull: GitHubPull,
-  options: CliOptions
-): Promise<FactoryTouch[]> {
-  const reviews = await ghApiPagesAsync<GitHubReview>(
-    `repos/${repository}/pulls/${pull.number}/reviews?per_page=100`
-  );
-  return reviews.flatMap((review) => {
-    const touch = makeMarkerTouch(
-      {
-        target: `PR #${pull.number}`,
-        body: review.body,
-        timestamp: review.submitted_at ?? pull.updated_at,
-        source: "review",
-      },
-      options
-    );
-    return touch ? [touch] : [];
   });
 }
 
@@ -426,27 +404,41 @@ async function collectReviewTouches(
   pulls: GitHubPull[],
   options: CliOptions
 ): Promise<FactoryTouch[]> {
-  const inRangePulls = pulls.filter((pull) =>
-    isWithinRange(pull.updated_at, options.since, options.until)
+  const candidates = pulls.filter((pull) =>
+    hasActivityOverlap(
+      { createdAt: pull.created_at, updatedAt: pull.updated_at },
+      { since: options.since, until: options.until }
+    )
   );
   const touches: FactoryTouch[] = [];
-  for (
-    let index = 0;
-    index < inRangePulls.length;
-    index += REVIEW_CONCURRENCY
-  ) {
-    const batch = inRangePulls.slice(index, index + REVIEW_CONCURRENCY);
-    const batchResults = await Promise.all(
-      batch.map((pull) => fetchSinglePullReviews(repository, pull, options))
+  for (let index = 0; index < candidates.length; index += REVIEW_CONCURRENCY) {
+    const batch = candidates.slice(index, index + REVIEW_CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(async (pull) => {
+        const reviews = await ghApiPagesAsync<GitHubReview>(
+          `repos/${repository}/pulls/${pull.number}/reviews?per_page=100`
+        );
+        return reviews.flatMap((review) =>
+          makeMarkerTouch(
+            {
+              target: `PR #${pull.number}`,
+              body: review.body,
+              timestamp: review.submitted_at ?? pull.updated_at,
+              source: "review",
+            },
+            options
+          )
+        );
+      })
     );
-    touches.push(...batchResults.flat());
+    touches.push(...results.flat());
   }
   return touches;
 }
 
 function collectCommitTouches(
   options: CliOptions,
-  branchToPullNumber: ReadonlyMap<string, number>
+  lookup: PullLookup
 ): FactoryTouch[] {
   const gitOutput = runCommand("git", [
     "log",
@@ -456,7 +448,7 @@ function collectCommitTouches(
     `--until=${options.until}`,
     "--format=%H%x1f%aI%x1f%S%x1f%(trailers:key=Agent-Model)%x1f%(trailers:key=Agent-Role)%x1e",
   ]);
-  return parseGitLogOutput(gitOutput, branchToPullNumber);
+  return parseGitLogOutput(gitOutput, lookup);
 }
 
 async function main() {
@@ -478,20 +470,16 @@ async function main() {
 
   const pullResult = collectPullTouches(pulls, options);
   const reviewTouches = await collectReviewTouches(repository, pulls, options);
-  const touches = [
+  const rows = summarizeTouches([
     ...pullResult.touches,
     ...collectIssueTouches(issues, options),
     ...collectCommentTouches(comments, options),
     ...reviewTouches,
-    ...collectCommitTouches(options, pullResult.branchToPullNumber),
-  ];
-
-  const rows = summarizeTouches(touches);
-  if (options.isJson) {
-    console.log(JSON.stringify(rows, null, 2));
-    return;
-  }
-  console.log(formatTable(rows));
+    ...collectCommitTouches(options, pullResult.lookup),
+  ]);
+  console.log(
+    options.isJson ? JSON.stringify(rows, null, 2) : formatTable(rows)
+  );
 }
 
 if (import.meta.main) {
