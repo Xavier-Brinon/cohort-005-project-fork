@@ -35,6 +35,12 @@ A Student who has lost their Enrollment on a course but still has progress on it
 Seconds of video a Student has actually played in a course: the furthest point reached in each lesson, added up. Not lessons opened.
 _Avoid_: Viewed, Progress
 
+### Courses
+
+**Course Level**:
+How much a Student needs to know before taking a course: Beginner, Intermediate or Advanced.
+_Avoid_: Difficulty, Tier, Grade
+
 ### Purchases
 
 **Purchase**:
