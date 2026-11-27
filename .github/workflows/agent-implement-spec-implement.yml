@@ -4,7 +4,7 @@ name: Agent — Implement A Spec (Implement)
 #
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
-#     model live in .sandcastle/agent-workflows/shared/common.ts (model
+#     model live in .sandcastle/agent-workflows/shared/model.ts (model
 #     overridable via AGENT_MODEL). Resolved before the agent runs;
 #     $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `implement` environment (xb-agent-builder, Contents, Pull requests,
@@ -70,19 +70,19 @@ jobs:
       - name: Set up node and aube with mise
         uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
 
-      - name: Install dependencies
-        run: aube ci
-
       - name: Resolve configured model
         id: configured_model
         run: |
           set -euo pipefail
-          model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"')"
+          model_id="$(node .sandcastle/agent-workflows/shared/model.ts | jq -r '"\(.provider)/\(.model)"')"
           [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
             echo "::error::Invalid configured agent identity: $model_id"
             exit 1
           }
           echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: aube ci
 
       - name: Install Claude Code
         run: |

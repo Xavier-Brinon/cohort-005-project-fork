@@ -1,24 +1,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as sandcastle from "@ai-hero/sandcastle";
+import { agentIdentity } from "./model.ts";
 
-interface AgentIdentity {
-  readonly provider: string;
-  readonly model: string;
-}
-
-// Single source of truth for the factory's agent provider and model.
-// Workflows may override the model via AGENT_MODEL; provider is fixed to the
-// Sandcastle claudeCode provider actually invoked below.
-const DEFAULT_AGENT: AgentIdentity = {
-  provider: "claude-code",
-  model: "claude-opus-5-5",
-};
-
-export const agentIdentity = (): AgentIdentity => ({
-  provider: DEFAULT_AGENT.provider,
-  model: process.env.AGENT_MODEL || DEFAULT_AGENT.model,
-});
+export { agentIdentity };
 
 export const outputDir = (): string => process.env.OUTPUT_DIR ?? "/tmp";
 
@@ -39,7 +24,7 @@ export const writeJson = (filename: string, value: unknown): void => {
   );
 };
 
-export const writeAgentJson = (): AgentIdentity => {
+export const writeAgentJson = () => {
   const identity = agentIdentity();
   writeJson("agent.json", identity);
   return identity;

@@ -19,9 +19,9 @@ name: Agent — Review A Pull Request
 #
 # WHAT IT NEEDS
 #   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
-#     model live in one place: .sandcastle/agent-workflows/shared/common.ts
-#     (model overridable via AGENT_MODEL). Resolved before the
-#     agent runs; $OUTPUT_DIR/agent.json is cross-checked against it.
+#     model live in one place: .sandcastle/agent-workflows/shared/model.ts
+#     (model overridable via AGENT_MODEL). Resolved from `main` before the PR
+#     checkout; $OUTPUT_DIR/agent.json is cross-checked against it.
 #   The `review` environment: holds xb-agent-reviewer's vars.APP_CLIENT_ID and
 #     secrets.APP_PRIVATE_KEY. Minted once as the first step (Contents, Pull
 #     requests, Issues: write; no Workflows, so pushes cannot touch .github/),
@@ -126,6 +126,33 @@ jobs:
           gh pr edit "$PR_NUMBER" --remove-label "agent:blocked" || true
           gh pr edit "$PR_NUMBER" --add-label "agent:in-progress"
 
+      - name: Checkout main model config
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          path: .main-config
+          sparse-checkout: |
+            mise.toml
+            .sandcastle/agent-workflows/shared/model.ts
+          persist-credentials: false
+
+      - name: Set up node and aube with mise
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+        with:
+          working_directory: .main-config
+
+      - name: Resolve configured model
+        id: configured_model
+        run: |
+          set -euo pipefail
+          model_id="$(node .main-config/.sandcastle/agent-workflows/shared/model.ts | jq -r '"\(.provider)/\(.model)"')"
+          rm -rf .main-config
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid configured agent identity: $model_id"
+            exit 1
+          }
+          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout the pull request
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -151,22 +178,8 @@ jobs:
           fi
           cat /tmp/review-spec.md
 
-      - name: Set up node and aube with mise
-        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
-
       - name: Install dependencies
         run: aube ci
-
-      - name: Resolve configured model
-        id: configured_model
-        run: |
-          set -euo pipefail
-          model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"')"
-          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
-            echo "::error::Invalid configured agent identity: $model_id"
-            exit 1
-          }
-          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
 
       - name: Install Claude Code
         run: |
