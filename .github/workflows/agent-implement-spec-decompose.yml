@@ -1,0 +1,141 @@
+name: Agent — Implement A Spec (Decompose)
+
+# Reusable decompose loop called by agent-implement-spec.yml.
+#
+# WHAT IT NEEDS
+#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
+#     model live in .sandcastle/agent-workflows/shared/common.ts (overridable
+#     via AGENT_PROVIDER and AGENT_MODEL env vars) and are written to
+#     $OUTPUT_DIR/agent.json.
+#   The `decompose` environment (xb-agent-decomposer, Issues: read/write,
+#     `main`-only). Inherited via `secrets: inherit` from the caller.
+
+on:
+  workflow_call:
+    inputs:
+      spec:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  decompose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: decompose
+
+    env:
+      GH_REPO: ${{ github.repository }}
+      SPEC: ${{ inputs.spec }}
+
+    steps:
+      - name: Mint the decomposer token
+        id: token
+        uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3.4.0
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-issues: write
+
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Read the spec
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          gh issue view "$SPEC" --json number,title,body \
+            --jq '"# " + .title + "\n\n" + .body' > /tmp/spec.md
+          cat /tmp/spec.md
+
+      - name: Set up node and aube with mise
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
+
+      - name: Install dependencies
+        run: aube ci
+
+      - name: Install Claude Code
+        run: |
+          aube add -g @anthropic-ai/claude-code
+          aube bin -g >> "$GITHUB_PATH"
+
+      - name: Decompose the spec into a queue
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          OUTPUT_DIR: ${{ runner.temp }}
+        run: node .sandcastle/agent-workflows/implement-spec/decompose.ts
+
+      - name: Keep the screenshots
+        id: evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: decompose-evidence
+          path: /tmp/evidence/*.png
+          if-no-files-found: ignore
+
+      - name: Write the queue as issues
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid agent identity in agent.json: $model_id"
+            exit 1
+          }
+          marker="<!-- factory:model=${model_id} role=decomposer run=${GITHUB_RUN_ID} -->"
+
+          cp "$RUNNER_TEMP/queue.json" /tmp/queue.json
+          jq '.' /tmp/queue.json
+
+          gh label create "spec:${SPEC}" --color BFD4F2 \
+            --description "A ticket in the queue for spec #${SPEC}" || true
+          gh label create "agent:queued" --color FEF2C0 \
+            --description "Waiting for the implement-spec chain" || true
+
+          total=$(jq '.tickets | length' /tmp/queue.json)
+          echo "Writing $total tickets for spec #${SPEC}."
+
+          for i in $(seq 0 $((total - 1))); do
+            title=$(jq -r ".tickets[$i].title" /tmp/queue.json)
+            position=$(jq -r ".tickets[$i].position" /tmp/queue.json)
+            shape=$(jq -r ".tickets[$i].shape" /tmp/queue.json)
+            depends=$(jq -r ".tickets[$i].depends_on | join(\", \")" /tmp/queue.json)
+
+            {
+              echo "Part of #${SPEC}"
+              echo ""
+              echo "Position: ${position}"
+              echo "Depends on: ${depends}"
+              echo "Shape: ${shape}"
+              echo ""
+              echo "---"
+              echo ""
+              jq -r ".tickets[$i].body" /tmp/queue.json
+            } > /tmp/ticket-body.md
+
+            perl -0777 -i -pe 's/<!--\s*factory:model\b[\s\S]*?-->//gi' /tmp/ticket-body.md
+
+            if grep -q '/tmp/evidence/' /tmp/ticket-body.md; then
+              sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' /tmp/ticket-body.md
+              printf '\n\nScreenshots: [decompose-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> /tmp/ticket-body.md
+            fi
+
+            printf '\n\n%s\n' "$marker" >> /tmp/ticket-body.md
+
+            gh issue create \
+              --title "$title" \
+              --body-file /tmp/ticket-body.md \
+              --label "spec:${SPEC}" \
+              --label "agent:queued"
+          done
+
+          gh issue comment "$SPEC" --body \
+            "Decomposed into ${total} tickets, labelled \`spec:${SPEC}\`. The chain takes it from here. <!-- factory:status --> ${marker}"

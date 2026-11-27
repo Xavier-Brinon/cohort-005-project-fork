@@ -55,7 +55,10 @@ name: Agent — Explore The Tickets
 #   its prompt next to it in prompt.md.
 #
 # WHAT IT NEEDS
-#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token.
+#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
+#     model live in one place: .sandcastle/agent-workflows/shared/common.ts
+#     (overridable via AGENT_PROVIDER and AGENT_MODEL env vars). Every script
+#     writes them to $OUTPUT_DIR/agent.json for the marker steps below.
 #   The `explore` environment, named by every job here. It holds the
 #     xb-agent-explorer app's client id (vars.APP_CLIENT_ID) and private key
 #     (an environment secret). Each job mints one token from them, never
@@ -113,12 +116,13 @@ jobs:
     permissions:
       contents: read # the checkout. The tickets are read with the app token.
 
-    # The batch it was given, and the plan it came back with. The apply job
-    # reads both.
+    # The batch it was given, the plan it came back with, and the model that
+    # produced it. The apply and finish jobs read them.
     outputs:
       batch: ${{ steps.batch.outputs.numbers }}
       plan: ${{ steps.plan.outputs.json }}
       evidence: ${{ steps.evidence.outputs.artifact-url }}
+      model: ${{ steps.model.outputs.id }}
 
     env:
       GH_REPO: ${{ github.repository }}
@@ -227,6 +231,21 @@ jobs:
           set -euo pipefail
           echo "json=$(jq -c . "$RUNNER_TEMP/plan.json")" >> "$GITHUB_OUTPUT"
 
+      - name: Record the agent model
+        id: model
+        if: always() && steps.batch.outputs.numbers != '[]'
+        run: |
+          set -euo pipefail
+          if [ -s "$RUNNER_TEMP/agent.json" ]; then
+            model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          elif command -v node >/dev/null 2>&1 && [ -f .sandcastle/agent-workflows/shared/common.ts ]; then
+            model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"')"
+          else
+            model_id="unknown/unknown"
+          fi
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || model_id="unknown/unknown"
+          echo "id=${model_id}" >> "$GITHUB_OUTPUT"
+
       - name: Keep the screenshots
         id: evidence
         if: steps.batch.outputs.numbers != '[]'
@@ -252,6 +271,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
       EVIDENCE_URL: ${{ needs.explore.outputs.evidence }}
+      AGENT_MODEL_ID: ${{ needs.explore.outputs.model }}
 
     steps:
       - name: Check the plan
@@ -323,6 +343,7 @@ jobs:
             fi
 
             jq -r '.comment' <<< "$entry" > /tmp/comment.md
+            perl -0777 -i -pe 's/<!--\s*factory:model\b[\s\S]*?-->//gi' /tmp/comment.md
             # `gh --attach` rejects GitHub App installation tokens. So each
             # `![alt](/tmp/evidence/<file>)` becomes the file's name, and the
             # comment links to the run's artifact that holds the file.
@@ -330,7 +351,8 @@ jobs:
               sed -E -i 's#!\[([^]]*)\]\(/tmp/evidence/([^)]*)\)#[screenshot \2: \1]#g' /tmp/comment.md
               printf '\n\nScreenshots: [explore-evidence](%s)\n' "${EVIDENCE_URL:-$RUN_URL}" >> /tmp/comment.md
             fi
-            printf '\n\n---\n\n_%s_ [Logs](%s)\n' "$next" "$RUN_URL" >> /tmp/comment.md
+            printf '\n\n---\n\n_%s_ [Logs](%s)\n\n<!-- factory:model=%s role=explorer run=%s -->\n' \
+              "$next" "$RUN_URL" "$AGENT_MODEL_ID" "$GITHUB_RUN_ID" >> /tmp/comment.md
             gh issue comment "$n" --body-file /tmp/comment.md
 
             # `agent:in-progress` comes off: this issue is done, and the
@@ -360,6 +382,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       BATCH: ${{ needs.explore.outputs.batch }}
       RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      AGENT_MODEL_ID: ${{ needs.explore.outputs.model || 'unknown/unknown' }}
 
     steps:
       - name: Mint the explorer token
@@ -381,7 +404,7 @@ jobs:
               | grep -qx "agent:in-progress" || continue
             gh issue edit "$n" --add-label "agent:blocked" || true
             gh issue comment "$n" --body \
-              "Explore run **failed** — [logs](${RUN_URL}). Re-add \`agent:explore\` to retry. <!-- factory:status -->"
+              "Explore run **failed** — [logs](${RUN_URL}). Re-add \`agent:explore\` to retry. <!-- factory:status --> <!-- factory:model=${AGENT_MODEL_ID} role=explorer run=${GITHUB_RUN_ID} -->"
           done
 
       - name: Always remove in-progress

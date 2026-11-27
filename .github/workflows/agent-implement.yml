@@ -7,94 +7,41 @@ name: Agent — Implement A Ticket
 #   interface. No comment, no trigger phrase, no @mention — one label.
 #
 # WHAT IT DOES
-#   Checks the repo out, gives an agent the ticket and the repo's own
-#   verification checks, and opens a DRAFT pull request with whatever the
-#   agent committed. Draft, always: the human checkpoint we removed from the
-#   *build* has not been removed from the *merge*.
-#
-#   Every run pushes to a branch of its own, `agent/issue-<n>-<run id>`. A
-#   retry never pushes onto the branch an earlier run left behind, so nothing
-#   is there to reject the push and no run's work is lost. Two runs on one
-#   ticket means two pull requests; close the one you do not want.
-#
-#   The agent itself is a Sandcastle script:
-#   .sandcastle/agent-workflows/implement/implement.ts, with its prompt next
-#   to it in prompt.md.
+#   Checks the repo out, gives an agent the ticket and the repo's verification
+#   checks, adds Agent-Model/Agent-Role trailers, and opens a DRAFT PR with the
+#   factory:model marker. Every run pushes to `agent/issue-<n>-<run id>` so
+#   retries never collide. Agent: .sandcastle/agent-workflows/implement/implement.ts.
 #
 # WHAT IT NEEDS
-#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. To change the
-#     agent or how it is billed, see
-#     .sandcastle/agent-workflows/shared/common.ts.
-#   The `implement` environment, named by the job. It holds the
-#     xb-agent-builder app's client id (vars.APP_CLIENT_ID) and private key
-#     (an environment secret). The key goes to the minting step and nowhere
-#     else. Every step that talks to GitHub uses the token minted from them:
-#     reading the ticket, pushing, opening the pull request, commenting. It
-#     acts as xb-agent-builder[bot], lasts an hour at most, and is revoked
-#     when the job ends.
-#   The app has Contents, Pull requests, Issues and Actions: read and write.
-#     It has no Workflows permission, so a push that touches .github/ is
-#     refused: the agent cannot rewrite its own workflow. The job mints one
-#     token, as its first step, narrowed with `permission-*` to Contents,
-#     Pull requests and Issues. The job's 45-minute timeout keeps the run
-#     inside the token's hour, so nothing has to mint again after the agent.
-#   It cannot reach the other roles' keys. Each app's key sits in an
-#     environment of its own, the job gets only the environment it names, and
-#     every environment admits runs from `main` alone. Naming another one
-#     takes a change merged to `main`, which this app cannot push.
-#   secrets.GITHUB_TOKEN — supplied by Actions, and now used for one thing:
-#     the checkout. The `permissions:` block below shrinks it to match.
-#   Screenshots are not attached inline: `gh --attach` rejects GitHub App
-#     installation tokens, even with Contents write. They stay in the run's
-#     `implement-evidence` artifact, and the pull request links to it.
-#   The `agent:implement` label. A fresh clone of this repository does not
-#     have it, and no workflow can create the label that starts it. Create it
-#     once:
-#       gh label create "agent:implement" --color 5319E7 \
-#         --description "Hand this issue to the implementer agent"
+#   secrets.CLAUDE_CODE_OAUTH_TOKEN — the agent's auth token. The provider and
+#     model live in one place: .sandcastle/agent-workflows/shared/common.ts
+#     (overridable via AGENT_PROVIDER and AGENT_MODEL env vars). Every script
+#     writes them to $OUTPUT_DIR/agent.json for the trailer and marker steps.
+#   The `implement` environment: holds xb-agent-builder's vars.APP_CLIENT_ID
+#     and secrets.APP_PRIVATE_KEY. Minted once as the first step (Contents,
+#     Pull requests, Issues: write; no Workflows, so pushes cannot touch
+#     .github/), never passed to the agent, and valid under the 45-minute
+#     timeout. Each role's key lives in its own `main`-only environment.
+#   secrets.GITHUB_TOKEN — checkout only (`contents: read`).
+#   Screenshots stay in `implement-evidence` (`gh --attach` rejects app tokens).
+#   The `agent:implement` label (create once if missing).
 #
 # WHERE THE TOKENS GO
-#   GH_TOKEN is set on the steps that call GitHub, never on the job. The
-#   agent's step, and every step that runs code the agent wrote, has no
-#   GitHub token in its environment. The checkout does not keep one either
-#   (`persist-credentials: false`), so the only step that can push is the one
-#   that hands git the token for that one command.
-#
-#   The token is minted once, before the checkout, and never after the
-#   agent's step. The agent and the repo's install and seed scripts run
-#   unsandboxed, as the same user as every later step, and a process they
-#   leave running can read the environment of each step after it. A mint step
-#   there would show it the private key, which mints tokens until someone
-#   rotates it. Minted first, the key is in no later step's environment, with
-#   one exception: the action's own post step, which revokes the token as the
-#   job ends, is started with the key among its inputs.
-#   Nor is the key gone from the machine. The runner keeps every secret the
-#   job names in its own memory until the job ends, and the job's user has
-#   passwordless sudo, so code that sets out to read that memory can. Only a
-#   job that never names the key is safe from that, which means splitting the
-#   agent from the job that pushes and posts.
-#
-#   That keeps the token out of the agent's way. It is not a wall: a leftover
-#   process can still read GH_TOKEN from a later step, and `gh pr create`
-#   runs git in a checkout whose .git/config the agent could write. That
-#   token dies within the hour. The real defence is who can reach the agent at all: only
-#   a collaborator can open an issue that gets read, only a collaborator's
-#   comments get in, and the label is an approval only a collaborator can
-#   give.
+#   GH_TOKEN is set only on steps that call GitHub; the checkout uses
+#   `persist-credentials: false`. Because the agent and install/seed scripts
+#   run unsandboxed as the same user, minting first keeps the key out of later
+#   steps' env (except the action's post step, which revokes the token), though
+#   the runner holds job secrets in memory and the job user has passwordless
+#   sudo; only splitting the agent into a secret-free job closes that. A
+#   leftover process could still read GH_TOKEN or alter .git/config. The real
+#   defence is collaborator-only issues, comments and labels.
 #
 # WHO COMMITS
-#   The agent does, and the repo's own pre-commit hook runs on every commit it
-#   makes — the workflow points git at `.githooks` with `core.hooksPath`,
-#   exactly as on your machine. When the hook rejects a commit, the agent reads
-#   the failure, fixes its work and commits again. The hook is code from the
-#   repo, so it runs only where there is no token: every git command that
-#   holds one switches hooks off with `core.hooksPath=/dev/null`.
+#   The agent commits through `.githooks/pre-commit`; every git command holding
+#   a token switches hooks off with `core.hooksPath=/dev/null`.
 #
 # A CAUTION THAT COMES WITH IT
-#   `issues: labeled` fires on issues, which cannot come from a fork. Do not
-#   copy this trigger onto `pull_request_target` — that runs fork code with
-#   this job's secrets, and a fork can label nothing but can change the code
-#   the agent runs.
+#   `issues: labeled` cannot come from a fork; never copy onto `pull_request_target`.
 
 on:
   issues:
@@ -141,6 +88,20 @@ jobs:
           permission-pull-requests: write
           permission-issues: write
 
+      - name: Resolve the bot identity
+        id: bot
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          APP_SLUG: ${{ steps.token.outputs.app-slug }}
+        run: |
+          set -euo pipefail
+          bot_name="${APP_SLUG}[bot]"
+          bot_id="$(gh api "users/${APP_SLUG}%5Bbot%5D" --jq .id)"
+          {
+            echo "name=${bot_name}"
+            echo "email=${bot_id}+${bot_name}@users.noreply.github.com"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Transition labels
         # The trigger comes off, so putting it back on is how you retry.
         # `agent:in-progress` goes on until the run ends, however it ends.
@@ -184,10 +145,13 @@ jobs:
 
       - name: Open the branch
         id: branch
+        env:
+          BOT_NAME: ${{ steps.bot.outputs.name }}
+          BOT_EMAIL: ${{ steps.bot.outputs.email }}
         run: |
           set -euo pipefail
-          git config user.name "agent-factory[bot]"
-          git config user.email "agent-factory[bot]@users.noreply.github.com"
+          git config user.name "$BOT_NAME"
+          git config user.email "$BOT_EMAIL"
           git checkout -b "$BRANCH"
           # Where the agent starts. Anything after this is a commit it made.
           echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
@@ -238,6 +202,7 @@ jobs:
       - name: Build the ticket
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          OUTPUT_DIR: ${{ runner.temp }}
         run: node .sandcastle/agent-workflows/implement/implement.ts
 
       - name: Check the agent committed
@@ -260,6 +225,46 @@ jobs:
             exit 1
           fi
           git log --oneline "$BASE..HEAD"
+
+      - name: Add model trailers
+        id: trailers
+        env:
+          BASE: ${{ steps.branch.outputs.base }}
+          BOT_NAME: ${{ steps.bot.outputs.name }}
+          BOT_EMAIL: ${{ steps.bot.outputs.email }}
+        run: |
+          set -euo pipefail
+          model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json")"
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::Invalid agent identity in agent.json: $model_id"
+            exit 1
+          }
+          echo "model_id=${model_id}" >> "$GITHUB_OUTPUT"
+
+          old_head="$(git rev-parse HEAD)"
+          declare -A mapped
+          mapped["$BASE"]="$BASE"
+          while IFS= read -r sha; do
+            tree="$(git show -s --format=%T "$sha")"
+            parent_args=()
+            for p in $(git show -s --format=%P "$sha"); do
+              parent_args+=(-p "${mapped[$p]:-$p}")
+            done
+            cleaned="$(git show -s --format=%B "$sha" | grep -viE '^[[:space:]]*Agent-(Model|Role)[[:space:]]*:' || true)"
+            msg="$(printf '%s\n' "$cleaned" | git interpret-trailers --trailer "Agent-Model: ${model_id}" --trailer "Agent-Role: builder")"
+            new_sha="$(
+              GIT_AUTHOR_NAME="$BOT_NAME" \
+              GIT_AUTHOR_EMAIL="$BOT_EMAIL" \
+              GIT_AUTHOR_DATE="$(git show -s --format=%aI "$sha")" \
+              GIT_COMMITTER_NAME="$BOT_NAME" \
+              GIT_COMMITTER_EMAIL="$BOT_EMAIL" \
+              GIT_COMMITTER_DATE="$(git show -s --format=%cI "$sha")" \
+              git -c core.hooksPath=/dev/null commit-tree "$tree" "${parent_args[@]}" <<< "$msg"
+            )"
+            mapped["$sha"]="$new_sha"
+          done < <(git rev-list --reverse --topo-order "$BASE..$old_head")
+          git -c core.hooksPath=/dev/null reset --hard "${mapped[$old_head]}"
+          git log --format='%h %s | %(trailers:key=Agent-Model,valueonly=true) | %(trailers:key=Agent-Role,valueonly=true)' "$BASE..HEAD"
 
       - name: Push
         env:
@@ -290,11 +295,13 @@ jobs:
           # to `gh`.
           GH_TOKEN: ${{ steps.token.outputs.token }}
           EVIDENCE_URL: ${{ steps.evidence.outputs.artifact-url }}
+          AGENT_MODEL_ID: ${{ steps.trailers.outputs.model_id }}
         run: |
           set -euo pipefail
           title="$(gh issue view "$ISSUE_NUMBER" --json title --jq .title)"
           body_file=/tmp/pr-body.md
           [ -s "$body_file" ] || echo "Built by the implementer workflow." > "$body_file"
+          perl -0777 -i -pe 's/<!--\s*factory:model\b[\s\S]*?-->//gi' "$body_file"
 
           # `gh --attach` rejects GitHub App installation tokens, even with
           # Contents write. Swap each `![alt](/tmp/evidence/<file>)` for the
@@ -310,6 +317,8 @@ jobs:
             echo ""
             echo "Closes #${ISSUE_NUMBER}. Built unattended by [this run](${RUN_URL})."
             echo "Nobody has read this yet. That is what the draft state is for."
+            echo ""
+            echo "<!-- factory:model=${AGENT_MODEL_ID} role=builder run=${GITHUB_RUN_ID} -->"
           } >> "$body_file"
 
           url="$(gh pr create \
@@ -332,14 +341,23 @@ jobs:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           JOB_STATUS: ${{ job.status }}
           PR_URL: ${{ steps.pr.outputs.url }}
+          AGENT_MODEL_ID: ${{ steps.trailers.outputs.model_id }}
         run: |
+          model_id="${AGENT_MODEL_ID:-}"
+          if [ -z "$model_id" ] && [ -s "$RUNNER_TEMP/agent.json" ]; then
+            model_id="$(jq -r '"\(.provider)/\(.model)"' "$RUNNER_TEMP/agent.json" 2>/dev/null || true)"
+          fi
+          if [ -z "$model_id" ] && command -v node >/dev/null 2>&1 && [ -f .sandcastle/agent-workflows/shared/common.ts ]; then
+            model_id="$(node .sandcastle/agent-workflows/shared/common.ts | jq -r '"\(.provider)/\(.model)"' 2>/dev/null || true)"
+          fi
+          [[ "$model_id" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]] || model_id="unknown/unknown"
           where=""
           [ -n "$PR_URL" ] && where=" Pull request: ${PR_URL}, from \`${BRANCH}\`."
           retry=""
           [ "$JOB_STATUS" = "failure" ] && retry=" Re-add \`agent:implement\` to retry."
           # Tagged, so the next run on this ticket leaves it out of the ticket.
           gh issue comment "$ISSUE_NUMBER" --body \
-            "Implementer run **${JOB_STATUS}** — [logs](${RUN_URL}).${where}${retry} <!-- factory:status -->"
+            "Implementer run **${JOB_STATUS}** — [logs](${RUN_URL}).${where}${retry} <!-- factory:status --> <!-- factory:model=${model_id} role=builder run=${GITHUB_RUN_ID} -->"
 
       - name: Always remove in-progress
         if: always()
