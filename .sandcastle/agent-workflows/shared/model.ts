@@ -7,7 +7,7 @@ interface AgentIdentity {
 // Workflows may override the model via AGENT_MODEL; provider is fixed to the
 // Sandcastle claudeCode provider actually invoked by common.ts.
 const DEFAULT_AGENT: AgentIdentity = {
-  provider: "claude-code",
+  provider: "someone-else",
   model: "claude-opus-5-5",
 };
 
